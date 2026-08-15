@@ -221,7 +221,7 @@ input[type=checkbox]{accent-color:#0f766e}
 <script>
 (()=>{
   'use strict';
-  const DB_NAME = 'RotaskApp_v2', DB_VERSION = 2;
+  const DB_NAME = 'RotaskApp_v3', DB_VERSION = 1;
   const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
   const uid = () => crypto.randomUUID();
   const today = () => new Date().toLocaleDateString('en-CA');
@@ -234,7 +234,8 @@ input[type=checkbox]{accent-color:#0f766e}
   }
 
   function toast(msg) {
-    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    const t = $('#toast'); if (!t) return;
+    t.textContent = msg; t.hidden = false;
     clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 2800);
   }
 
@@ -251,8 +252,11 @@ input[type=checkbox]{accent-color:#0f766e}
       const req = indexedDB.open(DB_NAME, DB_VERSION);
       req.onupgradeneeded = () => {
         const d = req.result;
-        ['groups', 'settings', 'vacations', 'completions', 'events', 'event_completions'].forEach(name => {
-          if (!d.objectStoreNames.contains(name)) d.createObjectStore(name, { keyPath: name === 'settings' ? 'key' : 'id' });
+        const stores = ['groups', 'settings', 'vacations', 'completions', 'events', 'event_completions'];
+        stores.forEach(name => {
+          if (!d.objectStoreNames.contains(name)) {
+            d.createObjectStore(name, { keyPath: name === 'settings' ? 'key' : 'id' });
+          }
         });
       };
       req.onsuccess = () => resolve(req.result);
@@ -262,9 +266,13 @@ input[type=checkbox]{accent-color:#0f766e}
 
   const txStore = (n, m = 'readonly') => db.transaction(n, m).objectStore(n);
   const dbReq = (n, mth, val, m = 'readonly') => new Promise((ok, no) => {
-    const r = txStore(n, m)[mth](val);
-    r.onsuccess = () => ok(r.result);
-    r.onerror = () => no(r.error);
+    try {
+      const r = txStore(n, m)[mth](val);
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => no(r.error);
+    } catch(err) {
+      ok([]);
+    }
   });
 
   const all = n => dbReq(n, 'getAll');
@@ -277,14 +285,15 @@ input[type=checkbox]{accent-color:#0f766e}
     return await getOne('settings', 'app') || { key: 'app', start: today(), end: addDays(today(), 120) };
   }
 
-  const isHoliday = (d, hs) => hs.some(h => d >= h.start && d <= h.end);
-  const workdaysCount = (d, start, hs) => {
+  const isHoliday = (d, hs = []) => hs.some(h => d >= h.start && d <= h.end);
+  const workdaysCount = (d, start, hs = []) => {
     let cnt = 0;
     for (let c = start; c < d; c = addDays(c, 1)) if (!isHoliday(c, hs)) cnt++;
     return cnt;
   };
 
   function normalized(group) {
+    if (!group) return { id: uid(), name: '', subgroups: [] };
     if (Array.isArray(group.subgroups)) {
       return { ...group, subgroups: group.subgroups.map(sg => ({ ...sg, url: allowedUrl(sg.url), tasks: Array.isArray(sg.tasks) ? sg.tasks.map(t => ({ ...t, url: allowedUrl(t.url) })) : [] })) };
     }
@@ -292,22 +301,22 @@ input[type=checkbox]{accent-color:#0f766e}
     return { ...group, subgroups: legacy.length ? [{ id: uid(), name: 'Główna', tasks: legacy }] : [] };
   }
 
-  function getPlanForDate(date, groups, holidays, cfg) {
-    if (date < cfg.start || date > cfg.end || isHoliday(date, holidays)) return [];
+  function getPlanForDate(date, groups = [], holidays = [], cfg) {
+    if (!cfg || date < cfg.start || date > cfg.end || isHoliday(date, holidays)) return [];
     const turn = workdaysCount(date, cfg.start, holidays);
     return groups.map(normalized).filter(g => g.active !== false && g.subgroups.length).map(g => {
       const sgs = g.subgroups;
       const sgIdx = turn % sgs.length;
       const sg = sgs[sgIdx];
-      const tasks = sg.tasks.length ? sg.tasks : [{ id: `${sg.id}-def`, name: sg.name, url: allowedUrl(sg.url), fallback: true }];
+      const tasks = (sg.tasks && sg.tasks.length) ? sg.tasks : [{ id: `${sg.id}-def`, name: sg.name, url: allowedUrl(sg.url), fallback: true }];
       const tIdx = Math.floor(turn / sgs.length) % tasks.length;
       return { group: g, subgroup: sg, task: tasks[tIdx], sgIdx, sgCount: sgs.length, tIdx, tCount: tasks.length };
     });
   }
 
-  /* OBLICZANIE DAT WYDARZEŃ */
   function getNextOccurrences(ev, count = 2) {
     const list = [];
+    if (!ev || !ev.baseDate) return list;
     let cur = new Date(ev.baseDate + 'T12:00:00');
     const interval = Math.max(1, Number(ev.interval) || 1);
     
@@ -326,7 +335,6 @@ input[type=checkbox]{accent-color:#0f766e}
     return list;
   }
 
-  /* AKORDEON STAN */
   const getAccordion = () => JSON.parse(localStorage.getItem('rotask_acc') || '{}');
   const setAccordion = v => localStorage.setItem('rotask_acc', JSON.stringify(v));
 
@@ -356,18 +364,18 @@ input[type=checkbox]{accent-color:#0f766e}
       all('groups'), all('vacations'), getCfg(), all('completions'), all('events'), all('event_completions')
     ]);
     const cur = today();
-    const isHol = isHoliday(cur, holidays);
-    const plan = getPlanForDate(cur, groups, holidays, cfg);
-    const doneMap = new Map(completions.map(c => [c.id, c.done]));
-    const evDoneMap = new Map(evCompletions.map(c => [c.id, c.done]));
+    const isHol = isHoliday(cur, holidays || []);
+    const plan = getPlanForDate(cur, groups || [], holidays || [], cfg);
+    const doneMap = new Map((completions || []).map(c => [c.id, c.done]));
+    const evDoneMap = new Map((evCompletions || []).map(c => [c.id, c.done]));
 
     $('#holiday-note').hidden = !isHol;
 
     /* Zaległości */
     const backlog = [];
     for (let d = cfg.start; d < cur; d = addDays(d, 1)) {
-      if (!isHoliday(d, holidays)) {
-        getPlanForDate(d, groups, holidays, cfg).forEach(item => {
+      if (!isHoliday(d, holidays || [])) {
+        getPlanForDate(d, groups || [], holidays || [], cfg).forEach(item => {
           if (!doneMap.get(d + '|' + item.group.id)) backlog.push({ date: d, ...item });
         });
       }
@@ -383,7 +391,6 @@ input[type=checkbox]{accent-color:#0f766e}
       </label>`;
     }).join('');
 
-    /* Zadania rotacyjne na dziś */
     const doneCount = plan.filter(item => doneMap.get(cur + '|' + item.group.id)).length;
     $('#summary').innerHTML = isHol ? '<b>Dzień wolny</b><span class="text-sm text-slate-300">Kolejki zatrzymane</span>' : `<b>${doneCount} z ${plan.length} wykonane</b><span class="text-sm text-slate-300">${plan.length} grup</span>`;
     $('#empty-today').hidden = isHol || plan.length > 0;
@@ -407,11 +414,10 @@ input[type=checkbox]{accent-color:#0f766e}
       </article>`;
     }).join('');
 
-    /* Moduł Zbliżających się Terminów (5 dni) */
     const criticalEvents = [];
     const upcomingEvents = [];
 
-    events.forEach(ev => {
+    (events || []).forEach(ev => {
       const occurrences = getNextOccurrences(ev, 4);
       occurrences.forEach(date => {
         const evDone = !!evDoneMap.get(ev.id + '|' + date);
@@ -422,7 +428,6 @@ input[type=checkbox]{accent-color:#0f766e}
       });
     });
 
-    /* Krytyczne na dziś */
     $('#today-events-critical').innerHTML = criticalEvents.map(item => {
       const link = item.ev.url ? `<a href="${esc(item.ev.url)}" target="_blank" class="underline font-bold">${esc(item.ev.name)}</a>` : `<b>${esc(item.ev.name)}</b>`;
       return `<div class="rounded-lg border-2 border-rose-500 bg-rose-50 p-4 text-rose-950 shadow-sm flex items-center gap-3">
@@ -434,7 +439,6 @@ input[type=checkbox]{accent-color:#0f766e}
       </div>`;
     }).join('');
 
-    /* Nadchodzące w ciągu 5 dni */
     $('#upcoming-events').hidden = !upcomingEvents.length;
     upcomingEvents.sort((a, b) => a.diff - b.diff);
     const badgeColors = {
@@ -454,7 +458,6 @@ input[type=checkbox]{accent-color:#0f766e}
       </div>`;
     }).join('');
 
-    /* Obsługa zdarzeń */
     $$('[data-today]').forEach(el => el.onchange = async () => {
       await put('completions', { id: cur + '|' + el.dataset.today, date: cur, groupId: el.dataset.today, done: el.checked });
       renderToday();
@@ -480,8 +483,8 @@ input[type=checkbox]{accent-color:#0f766e}
     const [groups, holidays, cfg, completions, events, evCompletions] = await Promise.all([
       all('groups'), all('vacations'), getCfg(), all('completions'), all('events'), all('event_completions')
     ]);
-    const doneMap = new Map(completions.map(c => [c.id, c.done]));
-    const evDoneMap = new Map(evCompletions.map(c => [c.id, c.done]));
+    const doneMap = new Map((completions || []).map(c => [c.id, c.done]));
+    const evDoneMap = new Map((evCompletions || []).map(c => [c.id, c.done]));
     const cur = today();
 
     $('#subview-tasks').hidden = scheduleSubtab !== 'tasks';
@@ -491,12 +494,12 @@ input[type=checkbox]{accent-color:#0f766e}
       let dates = [];
       for (let d = cfg.start; d <= cfg.end; d = addDays(d, 1)) dates.push(d);
       if (scheduleFilter === 'future') dates = dates.filter(d => d >= cur);
-      if (scheduleFilter === 'open') dates = dates.filter(d => d < cur && getPlanForDate(d, groups, holidays, cfg).some(it => !doneMap.get(d + '|' + it.group.id)));
+      if (scheduleFilter === 'open') dates = dates.filter(d => d < cur && getPlanForDate(d, groups || [], holidays || [], cfg).some(it => !doneMap.get(d + '|' + it.group.id)));
 
       $('#range-info').textContent = `${dates.length} dni w widoku (${cfg.start} - ${cfg.end})`;
       $('#schedule-list').innerHTML = dates.map(d => {
-        const isHol = isHoliday(d, holidays);
-        const plan = getPlanForDate(d, groups, holidays, cfg);
+        const isHol = isHoliday(d, holidays || []);
+        const plan = getPlanForDate(d, groups || [], holidays || [], cfg);
         const count = plan.filter(it => doneMap.get(d + '|' + it.group.id)).length;
         const tasksHtml = plan.map(it => {
           const isDone = !!doneMap.get(d + '|' + it.group.id);
@@ -528,9 +531,8 @@ input[type=checkbox]{accent-color:#0f766e}
         renderSchedule();
       });
     } else {
-      /* LISTA WYDARZEŃ (2 NAJBLIŻSZE TERMINY) */
       const renderedEvents = [];
-      events.forEach(ev => {
+      (events || []).forEach(ev => {
         const occurrences = getNextOccurrences(ev, 2);
         occurrences.forEach(date => {
           const isDone = !!evDoneMap.get(ev.id + '|' + date);
@@ -571,7 +573,7 @@ input[type=checkbox]{accent-color:#0f766e}
   /* RENDEROWANIE: GRUPY */
   async function renderGroups() {
     const [rawGroups, events] = await Promise.all([all('groups'), all('events')]);
-    const groups = rawGroups.map(normalized).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
+    const groups = (rawGroups || []).map(normalized).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
 
     $('#empty-groups').hidden = !!groups.length;
     $('#groups-list').innerHTML = groups.map(g => {
@@ -622,8 +624,7 @@ input[type=checkbox]{accent-color:#0f766e}
       </article>`;
     }).join('');
 
-    /* Wydarzenia w grupach */
-    $('#events-list').innerHTML = events.length ? events.map(ev => `
+    $('#events-list').innerHTML = (events && events.length) ? events.map(ev => `
       <article class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
         <div>
           <b>${esc(ev.name)}</b>
@@ -636,7 +637,6 @@ input[type=checkbox]{accent-color:#0f766e}
       </article>
     `).join('') : '<p class="text-sm text-slate-400">Brak zdefiniowanych terminów.</p>';
 
-    /* Obsługa Akordeonu */
     $$('.group-header').forEach(header => {
       header.onclick = () => {
         const gid = header.closest('article').dataset.groupId;
@@ -660,7 +660,6 @@ input[type=checkbox]{accent-color:#0f766e}
 
     updateAccordionVisuals();
 
-    /* Delegacja przycisków Edycji/Usuwania */
     $$('[data-gedit]').forEach(b => b.onclick = () => openGroupModal(b.dataset.gedit));
     $$('[data-gdel]').forEach(b => b.onclick = async () => {
       if (confirm('Usunąć całą grupę wraz z podgrupami?')) {
@@ -724,7 +723,7 @@ input[type=checkbox]{accent-color:#0f766e}
     $('#start').value = cfg.start;
     $('#end').value = cfg.end;
 
-    $('#holidays').innerHTML = hs.sort((a, b) => a.start.localeCompare(b.start)).map(h => `
+    $('#holidays').innerHTML = (hs || []).sort((a, b) => a.start.localeCompare(b.start)).map(h => `
       <div class="flex items-center justify-between rounded-md bg-slate-50 p-3 text-sm font-bold">
         <span>🏖️ ${h.start} — ${h.end}</span>
         <button data-hdel="${h.id}" class="text-rose-600 hover:bg-rose-50 p-1 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
@@ -739,7 +738,7 @@ input[type=checkbox]{accent-color:#0f766e}
     if (window.lucide) lucide.createIcons();
   }
 
-  /* MODALE LOGIKA */
+  /* MODALE */
   async function openGroupModal(id = '') {
     const g = id ? await getOne('groups', id) : null;
     $('#group-form').reset();
@@ -787,18 +786,18 @@ input[type=checkbox]{accent-color:#0f766e}
     $('#event-modal').showModal();
   }
 
-  /* EKSPORT I IMPORT */
+  /* EKSPORT / IMPORT */
   async function exportBackup() {
     const [groups, vacations, completions, settings, events, evCompletions] = await Promise.all([
       all('groups'), all('vacations'), all('completions'), all('settings'), all('events'), all('event_completions')
     ]);
     const data = {
-      version: 2,
+      version: 3,
       exportDate: new Date().toISOString(),
-      groups,
-      vacations,
-      completions,
-      settings: settings.find(s => s.key === 'app') || { key: 'app', start: today(), end: addDays(today(), 120) },
+      groups: groups || [],
+      vacations: vacations || [],
+      completions: completions || [],
+      settings: (settings && settings.find(s => s.key === 'app')) || { key: 'app', start: today(), end: addDays(today(), 120) },
       events: events || [],
       event_completions: evCompletions || []
     };
@@ -839,148 +838,180 @@ input[type=checkbox]{accent-color:#0f766e}
     else if (currentView === 'settings') renderSettings();
   }
 
+  /* AUTOMATYCZNE DANE POCZĄTKOWE */
+  async function ensureDefaultData() {
+    const [groups, cfg] = await Promise.all([all('groups'), getOne('settings', 'app')]);
+    if (!cfg) await put('settings', { key: 'app', start: today(), end: addDays(today(), 120) });
+    if (!groups || !groups.length) {
+      const seed = [
+        {
+          id: 'grp-1',
+          name: 'Języki obce',
+          color: '#0f766e',
+          active: true,
+          created: new Date().toISOString(),
+          subgroups: [
+            { id: 'sg-1-1', name: 'Angielski', url: '', tasks: [{ id: 't-1-1-1', name: 'BeeSpeaker (15m)', url: '' }, { id: 't-1-1-2', name: 'Słówka Anki', url: '' }] },
+            { id: 'sg-1-2', name: 'Niemiecki', url: '', tasks: [{ id: 't-1-2-1', name: 'Lekcja Duolingo', url: '' }] }
+          ]
+        },
+        {
+          id: 'grp-2',
+          name: 'Trening / IT',
+          color: '#2563eb',
+          active: true,
+          created: new Date().toISOString(),
+          subgroups: [
+            { id: 'sg-2-1', name: 'Cybersecurity', url: '', tasks: [{ id: 't-2-1-1', name: 'TryHackMe (1 pokój)', url: '' }, { id: 't-2-1-2', name: 'PowerShell Skrypt', url: '' }] }
+          ]
+        }
+      ];
+      for (const g of seed) await put('groups', g);
+    }
+  }
+
   /* START APLIKACJI */
   async function init() {
-    db = await openDB();
-    $('#date').textContent = today();
+    try {
+      db = await openDB();
+      await ensureDefaultData();
+      $('#date').textContent = today();
 
-    /* Nawigacja */
-    $$('.nav').forEach(btn => btn.onclick = () => {
-      currentView = btn.dataset.view;
-      $$('.view').forEach(v => v.hidden = v.id !== currentView + '-view');
-      $$('.nav').forEach(b => {
-        b.classList.toggle('active', b === btn);
-        b.classList.toggle('text-slate-500', b !== btn);
+      $$('.nav').forEach(btn => btn.onclick = () => {
+        currentView = btn.dataset.view;
+        $$('.view').forEach(v => v.hidden = v.id !== currentView + '-view');
+        $$('.nav').forEach(b => {
+          b.classList.toggle('active', b === btn);
+          b.classList.toggle('text-slate-500', b !== btn);
+        });
+        const titles = { today: 'Dzisiaj', schedule: 'Harmonogram', groups: 'Grupy i zadania', settings: 'Ustawienia' };
+        $('#title').textContent = titles[currentView];
+        renderCurrentView();
       });
-      const titles = { today: 'Dzisiaj', schedule: 'Harmonogram', groups: 'Grupy i zadania', settings: 'Ustawienia' };
-      $('#title').textContent = titles[currentView];
-      renderCurrentView();
-    });
 
-    /* Filtry Harmonogramu */
-    $$('.schedule-tab').forEach(btn => btn.onclick = () => {
-      scheduleSubtab = btn.dataset.subtab;
-      $$('.schedule-tab').forEach(b => {
-        b.className = 'schedule-tab rounded-md px-4 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700');
+      $$('.schedule-tab').forEach(btn => btn.onclick = () => {
+        scheduleSubtab = btn.dataset.subtab;
+        $$('.schedule-tab').forEach(b => {
+          b.className = 'schedule-tab rounded-md px-4 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700');
+        });
+        renderSchedule();
       });
-      renderSchedule();
-    });
 
-    $$('.filter').forEach(btn => btn.onclick = () => {
-      scheduleFilter = btn.dataset.filter;
-      $$('.filter').forEach(b => b.className = 'filter rounded-md px-3 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'));
-      renderSchedule();
-    });
-
-    $$('.ev-filter').forEach(btn => btn.onclick = () => {
-      eventFilter = btn.dataset.evFilter;
-      $$('.ev-filter').forEach(b => b.className = 'ev-filter rounded-md px-3 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'));
-      renderSchedule();
-    });
-
-    $('#collapse').onclick = () => {
-      scheduleCollapsed = !scheduleCollapsed;
-      $('#collapse').textContent = scheduleCollapsed ? 'Rozwiń' : 'Zwiń';
-      renderSchedule();
-    };
-
-    /* Przyciski Rozwiń/Zwiń w Grupach */
-    $('#expand-all').onclick = () => { setAccordion({}); updateAccordionVisuals(); };
-    $('#collapse-all').onclick = () => {
-      const st = {};
-      $$('#groups-list article').forEach(a => st['g:' + a.dataset.groupId] = true);
-      $$('#groups-list .subgroup-section').forEach(s => {
-        const gid = s.closest('article').dataset.groupId;
-        st['s:' + gid + ':' + s.dataset.subgroupId] = true;
+      $$('.filter').forEach(btn => btn.onclick = () => {
+        scheduleFilter = btn.dataset.filter;
+        $$('.filter').forEach(b => b.className = 'filter rounded-md px-3 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'));
+        renderSchedule();
       });
-      setAccordion(st);
-      updateAccordionVisuals();
-    };
 
-    /* Formularze Submit */
-    $('#add-group').onclick = () => openGroupModal();
-    $('#group-form').onsubmit = async e => {
-      e.preventDefault();
-      const gid = $('#group-id').value || uid();
-      const old = $('#group-id').value ? await getOne('groups', gid) : null;
-      await put('groups', {
-        id: gid,
-        name: $('#group-name').value.trim(),
-        color: $('#group-color').value,
-        active: true,
-        created: old?.created || new Date().toISOString(),
-        subgroups: old?.subgroups || []
+      $$('.ev-filter').forEach(btn => btn.onclick = () => {
+        eventFilter = btn.dataset.evFilter;
+        $$('.ev-filter').forEach(b => b.className = 'ev-filter rounded-md px-3 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'));
+        renderSchedule();
       });
-      $('#group-modal').close();
-      renderGroups();
-    };
 
-    $('#subgroup-form').onsubmit = async e => {
-      e.preventDefault();
-      const gid = $('#subgroup-group').value;
-      const sid = $('#subgroup-id').value || uid();
-      const g = normalized(await getOne('groups', gid));
-      const oldSg = g.subgroups.find(s => s.id === sid);
-      const newSg = { id: sid, name: $('#subgroup-name').value.trim(), url: allowedUrl($('#subgroup-url').value), tasks: oldSg?.tasks || [] };
-      g.subgroups = $('#subgroup-id').value ? g.subgroups.map(s => s.id === sid ? newSg : s) : [...g.subgroups, newSg];
-      await put('groups', g);
-      $('#subgroup-modal').close();
-      renderGroups();
-    };
+      $('#collapse').onclick = () => {
+        scheduleCollapsed = !scheduleCollapsed;
+        $('#collapse').textContent = scheduleCollapsed ? 'Rozwiń' : 'Zwiń';
+        renderSchedule();
+      };
 
-    $('#task-form').onsubmit = async e => {
-      e.preventDefault();
-      const gid = $('#task-group').value, sid = $('#task-subgroup').value, tid = $('#task-id').value || uid();
-      const g = normalized(await getOne('groups', gid));
-      const sg = g.subgroups.find(s => s.id === sid);
-      const newTask = { id: tid, name: $('#task-name').value.trim(), url: allowedUrl($('#task-url').value) };
-      sg.tasks = $('#task-id').value ? sg.tasks.map(t => t.id === tid ? newTask : t) : [...sg.tasks, newTask];
-      await put('groups', g);
-      $('#task-modal').close();
-      renderGroups();
-    };
+      $('#expand-all').onclick = () => { setAccordion({}); updateAccordionVisuals(); };
+      $('#collapse-all').onclick = () => {
+        const st = {};
+        $$('#groups-list article').forEach(a => st['g:' + a.dataset.groupId] = true);
+        $$('#groups-list .subgroup-section').forEach(s => {
+          const gid = s.closest('article').dataset.groupId;
+          st['s:' + gid + ':' + s.dataset.subgroupId] = true;
+        });
+        setAccordion(st);
+        updateAccordionVisuals();
+      };
 
-    $('#add-event').onclick = () => openEventModal();
-    $('#event-repeat').onchange = () => $('#event-interval-row').hidden = $('#event-repeat').value !== 'repeat';
-    $('#event-form').onsubmit = async e => {
-      e.preventDefault();
-      const evid = $('#event-id').value || uid();
-      await put('events', {
-        id: evid,
-        name: $('#event-name').value.trim(),
-        url: allowedUrl($('#event-url').value),
-        baseDate: $('#event-date').value,
-        repeat: $('#event-repeat').value,
-        interval: Math.max(1, Number($('#event-interval').value) || 1),
-        unit: $('#event-unit').value
-      });
-      $('#event-modal').close();
-      renderGroups();
-      renderToday();
-    };
+      $('#add-group').onclick = () => openGroupModal();
+      $('#group-form').onsubmit = async e => {
+        e.preventDefault();
+        const gid = $('#group-id').value || uid();
+        const old = $('#group-id').value ? await getOne('groups', gid) : null;
+        await put('groups', {
+          id: gid,
+          name: $('#group-name').value.trim(),
+          color: $('#group-color').value,
+          active: true,
+          created: old?.created || new Date().toISOString(),
+          subgroups: old?.subgroups || []
+        });
+        $('#group-modal').close();
+        renderGroups();
+      };
 
-    $('#holiday-form').onsubmit = async e => {
-      e.preventDefault();
-      const start = $('#holiday-start').value, end = $('#holiday-end').value;
-      if (end < start) return toast('Błędny zakres urlopu.');
-      await put('vacations', { id: uid(), start, end });
-      $('#holiday-form').reset();
-      renderSettings();
-    };
+      $('#subgroup-form').onsubmit = async e => {
+        e.preventDefault();
+        const gid = $('#subgroup-group').value;
+        const sid = $('#subgroup-id').value || uid();
+        const g = normalized(await getOne('groups', gid));
+        const oldSg = g.subgroups.find(s => s.id === sid);
+        const newSg = { id: sid, name: $('#subgroup-name').value.trim(), url: allowedUrl($('#subgroup-url').value), tasks: oldSg?.tasks || [] };
+        g.subgroups = $('#subgroup-id').value ? g.subgroups.map(s => s.id === sid ? newSg : s) : [...g.subgroups, newSg];
+        await put('groups', g);
+        $('#subgroup-modal').close();
+        renderGroups();
+      };
 
-    $('#save-range').onclick = async () => {
-      const start = $('#start').value, end = $('#end').value;
-      if (end < start) return toast('Deadline nie może być wcześniejszy.');
-      await put('settings', { key: 'app', start, end });
-      toast('Zapisano horyzont.');
-    };
+      $('#task-form').onsubmit = async e => {
+        e.preventDefault();
+        const gid = $('#task-group').value, sid = $('#task-subgroup').value, tid = $('#task-id').value || uid();
+        const g = normalized(await getOne('groups', gid));
+        const sg = g.subgroups.find(s => s.id === sid);
+        const newTask = { id: tid, name: $('#task-name').value.trim(), url: allowedUrl($('#task-url').value) };
+        sg.tasks = $('#task-id').value ? sg.tasks.map(t => t.id === tid ? newTask : t) : [...sg.tasks, newTask];
+        await put('groups', g);
+        $('#task-modal').close();
+        renderGroups();
+      };
 
-    $('#export').onclick = exportBackup;
-    $('#importFileInput').onchange = e => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ''; };
-    $$('[data-close]').forEach(b => b.onclick = () => $(`#${b.dataset.close}`).close());
+      $('#add-event').onclick = () => openEventModal();
+      $('#event-repeat').onchange = () => $('#event-interval-row').hidden = $('#event-repeat').value !== 'repeat';
+      $('#event-form').onsubmit = async e => {
+        e.preventDefault();
+        const evid = $('#event-id').value || uid();
+        await put('events', {
+          id: evid,
+          name: $('#event-name').value.trim(),
+          url: allowedUrl($('#event-url').value),
+          baseDate: $('#event-date').value,
+          repeat: $('#event-repeat').value,
+          interval: Math.max(1, Number($('#event-interval').value) || 1),
+          unit: $('#event-unit').value
+        });
+        $('#event-modal').close();
+        renderGroups();
+        renderToday();
+      };
 
-    /* Domyślne załadowanie */
-    renderToday();
+      $('#holiday-form').onsubmit = async e => {
+        e.preventDefault();
+        const start = $('#holiday-start').value, end = $('#holiday-end').value;
+        if (end < start) return toast('Błędny zakres urlopu.');
+        await put('vacations', { id: uid(), start, end });
+        $('#holiday-form').reset();
+        renderSettings();
+      };
+
+      $('#save-range').onclick = async () => {
+        const start = $('#start').value, end = $('#end').value;
+        if (end < start) return toast('Deadline nie może być wcześniejszy.');
+        await put('settings', { key: 'app', start, end });
+        toast('Zapisano horyzont.');
+      };
+
+      $('#export').onclick = exportBackup;
+      $('#importFileInput').onchange = e => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ''; };
+      $$('[data-close]').forEach(b => b.onclick = () => $(`#${b.dataset.close}`).close());
+
+      await renderToday();
+    } catch(err) {
+      console.error(err);
+    }
   }
 
   window.addEventListener('load', init);
