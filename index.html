@@ -1,0 +1,990 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f766e">
+<title>Rotask</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://unpkg.com/lucide@latest"></script>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect x='7' y='7' width='178' height='178' rx='42' fill='%230f766e' stroke='white' stroke-width='14'/%3E%3Cpath d='M57 43h58l20 20v76a10 10 0 0 1-10 10H57a10 10 0 0 1-10-10V53a10 10 0 0 1 10-10Z' fill='%230f172a' stroke='%2399f6e4' stroke-width='7' stroke-linejoin='round'/%3E%3Cpath d='M115 43v21h20M65 102l13 13 27-30M65 132h53' fill='none' stroke='white' stroke-width='9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22Rotask%22%2C%22short_name%22%3A%22Rotask%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%230f766e%22%2C%22theme_color%22%3A%22%230f766e%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%2C%253Csvg%2520xmlns%253D%2527http%253A%252F%252Fwww.w3.org%252F2000%252Fsvg%2527%2520viewBox%253D%25270%25200%2520192%2520192%2527%253E%253Crect%2520x%253D%25277%2527%2520y%253D%25277%2527%2520width%253D%2527178%2527%2520height%253D%2527178%2527%2520rx%253D%252742%2527%2520fill%253D%2527%25230f766e%2527%2520stroke%253D%2527white%2527%2520stroke-width%253D%252714%2527%252F%253E%253Cpath%2520d%253D%2527M57%252043h58l20%252020v76a10%252010%25200%25200%25201-10%252010H57a10%252010%25200%25200%25201-10-10V53a10%252010%25200%25200%25201%252010-10Z%2527%2520fill%253D%2527%25230f172a%2527%2520stroke%253D%2527%252399f6e4%2527%2520stroke-width%253D%25277%2527%2520stroke-linejoin%253D%2527round%2527%252F%253E%253Cpath%2520d%253D%2527M115%252043v21h20M65%2520102l13%252013%252027-30M65%2520132h53%2527%2520fill%253D%2527none%2527%2520stroke%253D%2527white%2527%2520stroke-width%253D%25279%2527%2520stroke-linecap%253D%2527round%2527%2520stroke-linejoin%253D%2527round%2527%252F%253E%253C%252Fsvg%253E%22%2C%22sizes%22%3A%22192x192%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%2C%22purpose%22%3A%22any%20maskable%22%7D%5D%7D">
+<style>
+body{font-family:ui-rounded,"Avenir Next","Segoe UI",sans-serif;-webkit-tap-highlight-color:transparent}
+.view[hidden]{display:none}
+.active{color:#0f766e}
+.active svg{stroke-width:2.5}
+dialog::backdrop{background:#0f172a88}
+input[type=checkbox]{accent-color:#0f766e}
+</style>
+</head>
+<body class="min-h-screen bg-slate-50 text-slate-800">
+<main class="mx-auto min-h-screen max-w-3xl pb-24">
+  <header class="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-slate-50/95 px-4 py-4 backdrop-blur">
+    <div>
+      <span class="text-xs font-bold uppercase tracking-wider text-teal-800">Silnik Rotacji</span>
+      <h1 id="title" class="text-2xl font-extrabold">Dzisiaj</h1>
+    </div>
+    <div id="date" class="rounded-lg bg-teal-100 px-3 py-2 text-xs font-bold text-teal-900"></div>
+  </header>
+
+  <!-- WIDOK: DZISIAJ -->
+  <section id="today-view" class="view px-4 py-5">
+    <div id="holiday-note" hidden class="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sky-950">
+      <b>🏖️ Dzisiaj masz urlop!</b>
+      <p class="mt-1 text-sm">Zadania rotacyjne są zamrożone. Terminy sztywne pozostają aktywne.</p>
+    </div>
+
+    <!-- ZADANIA KRYTYCZNE (DZISIEJSZE TERMINY) -->
+    <div id="today-events-critical" class="mb-4 space-y-2"></div>
+
+    <!-- ZALEGŁOŚCI -->
+    <details id="backlog-panel" hidden class="mb-4 overflow-hidden rounded-lg border border-amber-200 bg-amber-50">
+      <summary id="backlog-summary" class="cursor-pointer px-4 py-3 font-extrabold text-amber-950"></summary>
+      <div id="backlog-list" class="space-y-2 border-t border-amber-200 p-3"></div>
+    </details>
+
+    <div id="summary" class="mb-4 flex justify-between rounded-lg bg-slate-900 px-4 py-3 text-white"></div>
+    <div id="today-list" class="space-y-3"></div>
+    <div id="empty-today" hidden class="py-14 text-center text-slate-500">Brak zadań. Dodaj grupę w sekcji Grupy.</div>
+
+    <!-- ZBLIŻAJĄCE SIĘ TERMINY -->
+    <section id="upcoming-events" hidden class="mt-8 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="mb-3 font-extrabold text-slate-900">🔔 Zbliżające się terminy (następne 5 dni)</h2>
+      <div id="upcoming-events-list" class="space-y-2"></div>
+    </section>
+  </section>
+
+  <!-- WIDOK: HARMONOGRAM -->
+  <section id="schedule-view" class="view px-4 py-5" hidden>
+    <div class="mb-4 flex gap-2 border-b border-slate-200 pb-3">
+      <button data-subtab="tasks" class="schedule-tab rounded-md bg-slate-900 px-4 py-2 text-sm font-bold text-white">📋 Zadania</button>
+      <button data-subtab="events" class="schedule-tab rounded-md bg-slate-100 px-4 py-2 text-sm font-bold text-slate-700">📅 Wydarzenia</button>
+    </div>
+
+    <!-- POD-WIDOK: ZADANIA -->
+    <div id="subview-tasks">
+      <div class="mb-4 flex flex-wrap items-center gap-2">
+        <button data-filter="all" class="filter rounded-md bg-slate-900 px-3 py-2 text-sm font-bold text-white">Wszystkie</button>
+        <button data-filter="future" class="filter rounded-md bg-slate-100 px-3 py-2 text-sm font-bold">Nadchodzące</button>
+        <button data-filter="open" class="filter rounded-md bg-slate-100 px-3 py-2 text-sm font-bold">Zaległe</button>
+        <button id="collapse" class="ml-auto rounded-md bg-teal-100 px-3 py-2 text-sm font-bold text-teal-800">Zwiń</button>
+      </div>
+      <p id="range-info" class="mb-4 text-xs font-semibold text-slate-500"></p>
+      <div id="schedule-list" class="space-y-3"></div>
+    </div>
+
+    <!-- POD-WIDOK: WYDARZENIA (LISTA + 2 TERMINY) -->
+    <div id="subview-events" hidden>
+      <div class="mb-4 flex flex-wrap gap-2">
+        <button data-ev-filter="open" class="ev-filter rounded-md bg-slate-900 px-3 py-2 text-sm font-bold text-white">Do zrobienia</button>
+        <button data-ev-filter="all" class="ev-filter rounded-md bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">Wszystkie</button>
+        <button data-ev-filter="history" class="ev-filter rounded-md bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">Zrealizowane</button>
+      </div>
+      <div id="schedule-events-list" class="space-y-3"></div>
+    </div>
+  </section>
+
+  <!-- WIDOK: GRUPY -->
+  <section id="groups-view" class="view px-4 py-5" hidden>
+    <div class="mb-3 flex gap-2">
+      <button id="expand-all" class="rounded-md bg-teal-100 px-3 py-2 text-sm font-bold text-teal-800">Rozwiń wszystkie</button>
+      <button id="collapse-all" class="rounded-md bg-slate-100 px-3 py-2 text-sm font-bold text-slate-700">Zwiń wszystkie</button>
+    </div>
+    <button id="add-group" class="mb-4 flex w-full items-center justify-center gap-2 rounded-lg bg-teal-700 py-3 font-bold text-white shadow-sm hover:bg-teal-800">
+      <i data-lucide="plus"></i> Dodaj grupę zadań
+    </button>
+    <div id="groups-list" class="space-y-4"></div>
+    <p id="empty-groups" hidden class="py-14 text-center text-slate-500">Nie ma jeszcze żadnych grup.</p>
+
+    <!-- ZARZĄDZANIE TERMINAMI / WYDARZENIAMI -->
+    <section class="mt-8 border-t border-slate-200 pt-6">
+      <div class="mb-4 flex items-center justify-between">
+        <div>
+          <h2 class="font-extrabold text-slate-900">📅 Terminy i Wydarzenia specjalne</h2>
+          <p class="text-xs text-slate-500">Terminy sztywne – niezależne od urlopów</p>
+        </div>
+        <button id="add-event" class="rounded-md bg-teal-700 px-3 py-2 text-sm font-bold text-white hover:bg-teal-800">Dodaj termin</button>
+      </div>
+      <div id="events-list" class="space-y-2"></div>
+    </section>
+  </section>
+
+  <!-- WIDOK: USTAWIENIA -->
+  <section id="settings-view" class="view px-4 py-5" hidden>
+    <div class="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="font-extrabold">Horyzont planowania</h2>
+      <p class="mb-4 mt-1 text-sm text-slate-500">Oś czasu zadań rotacyjnych.</p>
+      <div class="grid grid-cols-2 gap-3">
+        <label class="text-sm font-bold">Początek<input id="start" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 border"></label>
+        <label class="text-sm font-bold">Deadline<input id="end" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 border"></label>
+      </div>
+      <button id="save-range" class="mt-4 w-full rounded-md bg-teal-700 py-3 font-bold text-white hover:bg-teal-800">Zapisz horyzont</button>
+    </div>
+
+    <div class="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="font-extrabold">Okresy urlopowe</h2>
+      <p class="mb-4 mt-1 text-sm text-slate-500">Zamrażają kolejki i rotację zadań.</p>
+      <form id="holiday-form" class="grid grid-cols-2 gap-3">
+        <label class="text-sm font-bold">Od<input id="holiday-start" required type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 border"></label>
+        <label class="text-sm font-bold">Do<input id="holiday-end" required type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 border"></label>
+        <button class="col-span-2 rounded-md bg-sky-700 py-3 font-bold text-white hover:bg-sky-800">Dodaj okres urlopu</button>
+      </form>
+      <div id="holidays" class="mt-4 space-y-2"></div>
+    </div>
+
+    <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <h2 class="font-extrabold">Kopia zapasowa</h2>
+      <p class="mb-4 mt-1 text-sm text-slate-500">Eksportuj i importuj całą bazę (w tym grupy, podgrupy, wydarzenia i historię).</p>
+      <button id="export" class="mb-3 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 py-3 font-bold text-white hover:bg-slate-800">
+        <i data-lucide="download"></i> Eksportuj do JSON
+      </button>
+      <label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-teal-600 py-3 font-bold text-teal-800 hover:bg-teal-50">
+        <i data-lucide="upload"></i> Importuj z JSON
+        <input id="importFileInput" hidden type="file" accept=".json,application/json">
+      </label>
+    </div>
+  </section>
+</main>
+
+<!-- DOLNA NAWIGACJA -->
+<nav class="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-200 bg-white">
+  <div class="mx-auto flex max-w-3xl justify-around">
+    <button data-view="today" class="nav active flex flex-col items-center p-3 text-xs font-bold"><i data-lucide="sun"></i>Dzisiaj</button>
+    <button data-view="schedule" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500"><i data-lucide="table-properties"></i>Harmonogram</button>
+    <button data-view="groups" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500"><i data-lucide="layers-3"></i>Grupy</button>
+    <button data-view="settings" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500"><i data-lucide="settings-2"></i>Ustawienia</button>
+  </div>
+</nav>
+
+<!-- MODALE -->
+<dialog id="group-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0 shadow-2xl">
+  <form id="group-form" class="p-5">
+    <div class="mb-4 flex justify-between items-center"><h2 class="text-xl font-extrabold">Grupa zadań</h2><button type="button" data-close="group-modal"><i data-lucide="x"></i></button></div>
+    <input id="group-id" hidden>
+    <label class="mb-3 block text-sm font-bold">Nazwa grupy<input id="group-name" required class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="np. Nauka"></label>
+    <label class="mb-5 block text-sm font-bold">Kolor grupy<input id="group-color" type="color" value="#0f766e" class="mt-1 h-11 w-full rounded-md cursor-pointer"></label>
+    <button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white hover:bg-teal-800">Zapisz grupę</button>
+  </form>
+</dialog>
+
+<dialog id="subgroup-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0 shadow-2xl">
+  <form id="subgroup-form" class="p-5">
+    <div class="mb-4 flex justify-between items-center"><h2 class="text-xl font-extrabold">Podgrupa</h2><button type="button" data-close="subgroup-modal"><i data-lucide="x"></i></button></div>
+    <input id="subgroup-group" hidden><input id="subgroup-id" hidden>
+    <label class="mb-3 block text-sm font-bold">Nazwa podgrupy<input id="subgroup-name" required class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="np. Słówka"></label>
+    <label class="mb-5 block text-sm font-bold">Link URL (opcjonalny)<input id="subgroup-url" type="url" class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="https://..."></label>
+    <button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white hover:bg-teal-800">Zapisz podgrupę</button>
+  </form>
+</dialog>
+
+<dialog id="task-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0 shadow-2xl">
+  <form id="task-form" class="p-5">
+    <div class="mb-4 flex justify-between items-center"><h2 class="text-xl font-extrabold">Zadanie</h2><button type="button" data-close="task-modal"><i data-lucide="x"></i></button></div>
+    <input id="task-group" hidden><input id="task-subgroup" hidden><input id="task-id" hidden>
+    <label class="mb-3 block text-sm font-bold">Nazwa zadania<input id="task-name" required class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="np. Lekcja 1"></label>
+    <label class="mb-5 block text-sm font-bold">Link (opcjonalny)<input id="task-url" type="url" class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="https://..."></label>
+    <button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white hover:bg-teal-800">Zapisz zadanie</button>
+  </form>
+</dialog>
+
+<dialog id="event-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0 shadow-2xl">
+  <form id="event-form" class="p-5">
+    <div class="mb-4 flex justify-between items-center"><h2 class="text-xl font-extrabold">Termin / Wydarzenie</h2><button type="button" data-close="event-modal"><i data-lucide="x"></i></button></div>
+    <input id="event-id" hidden>
+    <label class="mb-3 block text-sm font-bold">Nazwa wydarzenia<input id="event-name" required class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="np. Przegląd samochodu"></label>
+    <label class="mb-3 block text-sm font-bold">Link URL (opcjonalny)<input id="event-url" type="url" class="mt-1 w-full rounded-md border p-3 border-slate-300" placeholder="https://..."></label>
+    <label class="mb-3 block text-sm font-bold">Data bazowa (pierwsze wystąpienie)<input id="event-date" required type="date" class="mt-1 w-full rounded-md border p-3 border-slate-300"></label>
+    <label class="mb-3 block text-sm font-bold">Typ powtarzania
+      <select id="event-repeat" class="mt-1 w-full rounded-md border p-3 border-slate-300">
+        <option value="once">Jednorazowe</option>
+        <option value="repeat">Cykliczne</option>
+      </select>
+    </label>
+    <div id="event-interval-row" hidden class="mb-5 grid grid-cols-2 gap-3">
+      <label class="text-sm font-bold">Co ile:<input id="event-interval" type="number" min="1" value="1" class="mt-1 w-full rounded-md border p-3 border-slate-300"></label>
+      <label class="text-sm font-bold">Jednostka:
+        <select id="event-unit" class="mt-1 w-full rounded-md border p-3 border-slate-300">
+          <option value="days">Dni</option>
+          <option value="weeks">Tygodni</option>
+          <option value="months">Miesięcy</option>
+          <option value="years">Lat</option>
+        </select>
+      </label>
+    </div>
+    <button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white hover:bg-teal-800">Zapisz termin</button>
+  </form>
+</dialog>
+
+<div id="toast" hidden class="fixed left-1/2 top-5 z-50 -translate-x-1/2 rounded-md bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg"></div>
+
+<script>
+(()=>{
+  'use strict';
+  const DB_NAME = 'RotaskApp_v2', DB_VERSION = 2;
+  const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+  const uid = () => crypto.randomUUID();
+  const today = () => new Date().toLocaleDateString('en-CA');
+  const addDays = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toLocaleDateString('en-CA'); };
+  const esc = v => String(v || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  
+  function allowedUrl(v) {
+    if (!v || typeof v !== 'string') return '';
+    try { const u = new URL(v.trim()); return ['http:', 'https:'].includes(u.protocol) ? u.href : ''; } catch { return ''; }
+  }
+
+  function toast(msg) {
+    const t = $('#toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toast.timer); toast.timer = setTimeout(() => t.hidden = true, 2800);
+  }
+
+  let db;
+  let currentView = 'today';
+  let scheduleFilter = 'all';
+  let scheduleSubtab = 'tasks';
+  let eventFilter = 'open';
+  let scheduleCollapsed = false;
+
+  /* BAZA DANYCH INDEXEDDB */
+  function openDB() {
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, DB_VERSION);
+      req.onupgradeneeded = () => {
+        const d = req.result;
+        ['groups', 'settings', 'vacations', 'completions', 'events', 'event_completions'].forEach(name => {
+          if (!d.objectStoreNames.contains(name)) d.createObjectStore(name, { keyPath: name === 'settings' ? 'key' : 'id' });
+        });
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  const txStore = (n, m = 'readonly') => db.transaction(n, m).objectStore(n);
+  const dbReq = (n, mth, val, m = 'readonly') => new Promise((ok, no) => {
+    const r = txStore(n, m)[mth](val);
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => no(r.error);
+  });
+
+  const all = n => dbReq(n, 'getAll');
+  const getOne = (n, k) => dbReq(n, 'get', k);
+  const put = (n, v) => dbReq(n, 'put', v, 'readwrite');
+  const del = (n, k) => dbReq(n, 'delete', k, 'readwrite');
+  const clear = n => dbReq(n, 'clear', undefined, 'readwrite');
+
+  async function getCfg() {
+    return await getOne('settings', 'app') || { key: 'app', start: today(), end: addDays(today(), 120) };
+  }
+
+  const isHoliday = (d, hs) => hs.some(h => d >= h.start && d <= h.end);
+  const workdaysCount = (d, start, hs) => {
+    let cnt = 0;
+    for (let c = start; c < d; c = addDays(c, 1)) if (!isHoliday(c, hs)) cnt++;
+    return cnt;
+  };
+
+  function normalized(group) {
+    if (Array.isArray(group.subgroups)) {
+      return { ...group, subgroups: group.subgroups.map(sg => ({ ...sg, url: allowedUrl(sg.url), tasks: Array.isArray(sg.tasks) ? sg.tasks.map(t => ({ ...t, url: allowedUrl(t.url) })) : [] })) };
+    }
+    const legacy = Array.isArray(group.steps) ? group.steps : [];
+    return { ...group, subgroups: legacy.length ? [{ id: uid(), name: 'Główna', tasks: legacy }] : [] };
+  }
+
+  function getPlanForDate(date, groups, holidays, cfg) {
+    if (date < cfg.start || date > cfg.end || isHoliday(date, holidays)) return [];
+    const turn = workdaysCount(date, cfg.start, holidays);
+    return groups.map(normalized).filter(g => g.active !== false && g.subgroups.length).map(g => {
+      const sgs = g.subgroups;
+      const sgIdx = turn % sgs.length;
+      const sg = sgs[sgIdx];
+      const tasks = sg.tasks.length ? sg.tasks : [{ id: `${sg.id}-def`, name: sg.name, url: allowedUrl(sg.url), fallback: true }];
+      const tIdx = Math.floor(turn / sgs.length) % tasks.length;
+      return { group: g, subgroup: sg, task: tasks[tIdx], sgIdx, sgCount: sgs.length, tIdx, tCount: tasks.length };
+    });
+  }
+
+  /* OBLICZANIE DAT WYDARZEŃ */
+  function getNextOccurrences(ev, count = 2) {
+    const list = [];
+    let cur = new Date(ev.baseDate + 'T12:00:00');
+    const interval = Math.max(1, Number(ev.interval) || 1);
+    
+    if (ev.repeat === 'once') {
+      return [cur.toLocaleDateString('en-CA')];
+    }
+    
+    for (let i = 0; i < 50 && list.length < count; i++) {
+      list.push(cur.toLocaleDateString('en-CA'));
+      if (ev.unit === 'days') cur.setDate(cur.getDate() + interval);
+      else if (ev.unit === 'weeks') cur.setDate(cur.getDate() + interval * 7);
+      else if (ev.unit === 'months') cur.setMonth(cur.getMonth() + interval);
+      else if (ev.unit === 'years') cur.setFullYear(cur.getFullYear() + interval);
+      else cur.setDate(cur.getDate() + interval);
+    }
+    return list;
+  }
+
+  /* AKORDEON STAN */
+  const getAccordion = () => JSON.parse(localStorage.getItem('rotask_acc') || '{}');
+  const setAccordion = v => localStorage.setItem('rotask_acc', JSON.stringify(v));
+
+  function updateAccordionVisuals() {
+    const state = getAccordion();
+    $$('#groups-list > article').forEach(card => {
+      const gid = card.dataset.groupId;
+      if (!gid) return;
+      const isGroupClosed = !!state['g:' + gid];
+      card.querySelectorAll(':scope > .group-body').forEach(el => el.hidden = isGroupClosed);
+      const arr = card.querySelector('.group-arrow');
+      if (arr) arr.textContent = isGroupClosed ? '▸' : '▾';
+
+      card.querySelectorAll('.subgroup-section').forEach(sec => {
+        const sid = sec.dataset.subgroupId;
+        const isSgClosed = !!state['s:' + gid + ':' + sid];
+        sec.querySelectorAll('.subgroup-body').forEach(el => el.hidden = isSgClosed);
+        const sArr = sec.querySelector('.subgroup-arrow');
+        if (sArr) sArr.textContent = isSgClosed ? '▸' : '▾';
+      });
+    });
+  }
+
+  /* RENDEROWANIE: DZISIAJ */
+  async function renderToday() {
+    const [groups, holidays, cfg, completions, events, evCompletions] = await Promise.all([
+      all('groups'), all('vacations'), getCfg(), all('completions'), all('events'), all('event_completions')
+    ]);
+    const cur = today();
+    const isHol = isHoliday(cur, holidays);
+    const plan = getPlanForDate(cur, groups, holidays, cfg);
+    const doneMap = new Map(completions.map(c => [c.id, c.done]));
+    const evDoneMap = new Map(evCompletions.map(c => [c.id, c.done]));
+
+    $('#holiday-note').hidden = !isHol;
+
+    /* Zaległości */
+    const backlog = [];
+    for (let d = cfg.start; d < cur; d = addDays(d, 1)) {
+      if (!isHoliday(d, holidays)) {
+        getPlanForDate(d, groups, holidays, cfg).forEach(item => {
+          if (!doneMap.get(d + '|' + item.group.id)) backlog.push({ date: d, ...item });
+        });
+      }
+    }
+
+    $('#backlog-panel').hidden = !backlog.length;
+    $('#backlog-summary').textContent = `⚠️ Zaległe zadania (${backlog.length})`;
+    $('#backlog-list').innerHTML = backlog.map(item => {
+      const link = item.task.url ? `<a class="font-bold text-amber-900 underline" target="_blank" href="${esc(item.task.url)}">${esc(item.task.name)}</a>` : `<b>${esc(item.task.name)}</b>`;
+      return `<label class="flex cursor-pointer items-center gap-3 rounded-md bg-white p-3 text-sm shadow-sm">
+        <input data-backlog="${item.date}|${item.group.id}" type="checkbox" class="h-5 w-5">
+        <span class="min-w-0 flex-1"><b>${item.date}</b> · <span style="color:${esc(item.group.color)}">${esc(item.group.name)}</span>: ${link}</span>
+      </label>`;
+    }).join('');
+
+    /* Zadania rotacyjne na dziś */
+    const doneCount = plan.filter(item => doneMap.get(cur + '|' + item.group.id)).length;
+    $('#summary').innerHTML = isHol ? '<b>Dzień wolny</b><span class="text-sm text-slate-300">Kolejki zatrzymane</span>' : `<b>${doneCount} z ${plan.length} wykonane</b><span class="text-sm text-slate-300">${plan.length} grup</span>`;
+    $('#empty-today').hidden = isHol || plan.length > 0;
+
+    $('#today-list').innerHTML = plan.map(item => {
+      const isDone = !!doneMap.get(cur + '|' + item.group.id);
+      const link = item.task.url ? `<a class="font-extrabold text-teal-800 underline" target="_blank" href="${esc(item.task.url)}">${esc(item.task.name)}</a>` : `<b>${esc(item.task.name)}</b>`;
+      const repeatDays = item.sgCount * item.tCount;
+      return `<article class="rounded-lg border bg-white p-4 shadow-sm ${isDone ? 'border-teal-200 opacity-60' : 'border-slate-200'}">
+        <div class="flex gap-3">
+          <input data-today="${item.group.id}" type="checkbox" class="mt-1 h-6 w-6" ${isDone ? 'checked' : ''}>
+          <div class="min-w-0 flex-1">
+            <p class="mb-1 text-xs font-extrabold" style="color:${esc(item.group.color)}">
+              <span class="mr-1.5 inline-block h-2.5 w-2.5 rounded-full" style="background:${esc(item.group.color)}"></span>
+              ${esc(item.group.name)} ${!item.task.fallback ? '• ' + esc(item.subgroup.name) : ''}
+            </p>
+            <div class="text-base ${isDone ? 'line-through text-slate-400' : ''}">${link}</div>
+            <p class="mt-1 text-xs font-semibold text-slate-500">Powtórka co: ${repeatDays} dni · podgrupa ${item.sgIdx + 1} z ${item.sgCount}</p>
+          </div>
+        </div>
+      </article>`;
+    }).join('');
+
+    /* Moduł Zbliżających się Terminów (5 dni) */
+    const criticalEvents = [];
+    const upcomingEvents = [];
+
+    events.forEach(ev => {
+      const occurrences = getNextOccurrences(ev, 4);
+      occurrences.forEach(date => {
+        const evDone = !!evDoneMap.get(ev.id + '|' + date);
+        if (evDone) return;
+        const diff = Math.round((new Date(date + 'T12:00:00') - new Date(cur + 'T12:00:00')) / 86400000);
+        if (diff === 0) criticalEvents.push({ ev, date, diff });
+        else if (diff > 0 && diff <= 5) upcomingEvents.push({ ev, date, diff });
+      });
+    });
+
+    /* Krytyczne na dziś */
+    $('#today-events-critical').innerHTML = criticalEvents.map(item => {
+      const link = item.ev.url ? `<a href="${esc(item.ev.url)}" target="_blank" class="underline font-bold">${esc(item.ev.name)}</a>` : `<b>${esc(item.ev.name)}</b>`;
+      return `<div class="rounded-lg border-2 border-rose-500 bg-rose-50 p-4 text-rose-950 shadow-sm flex items-center gap-3">
+        <input data-ev-done="${item.ev.id}|${item.date}" type="checkbox" class="h-6 w-6">
+        <div class="flex-1">
+          <div class="text-xs font-black uppercase text-rose-700">🔔 Termin na dzisiaj!</div>
+          <div>${link}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    /* Nadchodzące w ciągu 5 dni */
+    $('#upcoming-events').hidden = !upcomingEvents.length;
+    upcomingEvents.sort((a, b) => a.diff - b.diff);
+    const badgeColors = {
+      1: 'bg-rose-600 text-white',
+      2: 'bg-amber-600 text-white',
+      3: 'bg-orange-500 text-white',
+      4: 'bg-yellow-400 text-slate-900',
+      5: 'bg-emerald-600 text-white'
+    };
+
+    $('#upcoming-events-list').innerHTML = upcomingEvents.map(item => {
+      const label = item.diff === 1 ? 'Jutro!' : `Za ${item.diff} dni`;
+      const link = item.ev.url ? `<a href="${esc(item.ev.url)}" target="_blank" class="underline">${esc(item.ev.name)}</a>` : esc(item.ev.name);
+      return `<div class="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 p-3 text-sm">
+        <div class="min-w-0 flex-1"><b>${link}</b><p class="text-xs text-slate-500">${item.date}</p></div>
+        <span class="rounded px-2.5 py-1 text-xs font-extrabold ${badgeColors[item.diff] || 'bg-slate-800 text-white'}">${label}</span>
+      </div>`;
+    }).join('');
+
+    /* Obsługa zdarzeń */
+    $$('[data-today]').forEach(el => el.onchange = async () => {
+      await put('completions', { id: cur + '|' + el.dataset.today, date: cur, groupId: el.dataset.today, done: el.checked });
+      renderToday();
+    });
+
+    $$('[data-backlog]').forEach(el => el.onchange = async () => {
+      const [d, gid] = el.dataset.backlog.split('|');
+      await put('completions', { id: d + '|' + gid, date: d, groupId: gid, done: el.checked });
+      renderToday();
+    });
+
+    $$('[data-ev-done]').forEach(el => el.onchange = async () => {
+      const [id, date] = el.dataset.evDone.split('|');
+      await put('event_completions', { id: id + '|' + date, eventId: id, date, done: el.checked, completedAt: new Date().toISOString() });
+      renderToday();
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  /* RENDEROWANIE: HARMONOGRAM */
+  async function renderSchedule() {
+    const [groups, holidays, cfg, completions, events, evCompletions] = await Promise.all([
+      all('groups'), all('vacations'), getCfg(), all('completions'), all('events'), all('event_completions')
+    ]);
+    const doneMap = new Map(completions.map(c => [c.id, c.done]));
+    const evDoneMap = new Map(evCompletions.map(c => [c.id, c.done]));
+    const cur = today();
+
+    $('#subview-tasks').hidden = scheduleSubtab !== 'tasks';
+    $('#subview-events').hidden = scheduleSubtab !== 'events';
+
+    if (scheduleSubtab === 'tasks') {
+      let dates = [];
+      for (let d = cfg.start; d <= cfg.end; d = addDays(d, 1)) dates.push(d);
+      if (scheduleFilter === 'future') dates = dates.filter(d => d >= cur);
+      if (scheduleFilter === 'open') dates = dates.filter(d => d < cur && getPlanForDate(d, groups, holidays, cfg).some(it => !doneMap.get(d + '|' + it.group.id)));
+
+      $('#range-info').textContent = `${dates.length} dni w widoku (${cfg.start} - ${cfg.end})`;
+      $('#schedule-list').innerHTML = dates.map(d => {
+        const isHol = isHoliday(d, holidays);
+        const plan = getPlanForDate(d, groups, holidays, cfg);
+        const count = plan.filter(it => doneMap.get(d + '|' + it.group.id)).length;
+        const tasksHtml = plan.map(it => {
+          const isDone = !!doneMap.get(d + '|' + it.group.id);
+          const link = it.task.url ? `<a href="${esc(it.task.url)}" target="_blank" class="underline">${esc(it.task.name)}</a>` : esc(it.task.name);
+          return `<label class="flex cursor-pointer items-center gap-3 text-sm">
+            <input data-sched-task="${d}|${it.group.id}" type="checkbox" class="h-4 w-4" ${isDone ? 'checked' : ''}>
+            <span class="min-w-0">
+              <span class="mr-2 rounded px-1.5 py-0.5 text-[10px] font-extrabold text-white" style="background:${esc(it.group.color)}">${esc(it.group.name)}</span>
+              <span class="${isDone ? 'line-through text-slate-400' : ''}">${link}</span>
+            </span>
+          </label>`;
+        }).join('');
+
+        return `<article class="rounded-lg border p-4 ${isHol ? 'bg-slate-100 border-slate-200' : 'bg-white border-slate-200'}">
+          <button class="flex w-full items-center justify-between text-left sched-toggle font-bold">
+            <span class="${d === cur ? 'text-teal-700 font-extrabold' : ''}">${d} ${d === cur ? '· Dziś' : ''}</span>
+            <span class="text-xs ${isHol ? 'text-sky-700' : 'text-slate-500'}">${isHol ? 'Urlop' : `${count}/${plan.length}`}</span>
+          </button>
+          <div class="sched-details mt-3 ${scheduleCollapsed ? 'hidden' : ''}">
+            ${isHol ? '<p class="text-xs font-bold text-slate-500">Urlop · sekwencje zamrożone</p>' : (tasksHtml ? `<div class="space-y-2 border-t pt-3">${tasksHtml}</div>` : '<p class="text-xs text-slate-400">Brak aktywnych zadań</p>')}
+          </div>
+        </article>`;
+      }).join('');
+
+      $$('.sched-toggle').forEach(btn => btn.onclick = () => btn.nextElementSibling.classList.toggle('hidden'));
+      $$('[data-sched-task]').forEach(el => el.onchange = async () => {
+        const [d, gid] = el.dataset.schedTask.split('|');
+        await put('completions', { id: d + '|' + gid, date: d, groupId: gid, done: el.checked });
+        renderSchedule();
+      });
+    } else {
+      /* LISTA WYDARZEŃ (2 NAJBLIŻSZE TERMINY) */
+      const renderedEvents = [];
+      events.forEach(ev => {
+        const occurrences = getNextOccurrences(ev, 2);
+        occurrences.forEach(date => {
+          const isDone = !!evDoneMap.get(ev.id + '|' + date);
+          if (eventFilter === 'open' && isDone) return;
+          if (eventFilter === 'history' && !isDone) return;
+          renderedEvents.push({ ev, date, isDone });
+        });
+      });
+
+      renderedEvents.sort((a, b) => a.date.localeCompare(b.date));
+
+      $('#schedule-events-list').innerHTML = renderedEvents.length ? renderedEvents.map(item => {
+        const link = item.ev.url ? `<a href="${esc(item.ev.url)}" target="_blank" class="underline font-bold">${esc(item.ev.name)}</a>` : `<b>${esc(item.ev.name)}</b>`;
+        return `<article class="flex items-center justify-between rounded-lg border p-4 ${item.isDone ? 'bg-slate-100 opacity-60 border-slate-200' : 'bg-white border-slate-200 shadow-sm'}">
+          <div class="flex items-center gap-3 min-w-0">
+            <input data-sched-ev="${item.ev.id}|${item.date}" type="checkbox" class="h-5 w-5" ${item.isDone ? 'checked' : ''}>
+            <div class="min-w-0">
+              <div class="text-sm ${item.isDone ? 'line-through text-slate-500' : ''}">${link}</div>
+              <p class="text-xs text-slate-500 font-semibold">📅 Termin: ${item.date} ${item.ev.repeat === 'repeat' ? `(co ${item.ev.interval} ${item.ev.unit})` : '(jednorazowe)'}</p>
+            </div>
+          </div>
+          <span class="rounded px-2 py-1 text-xs font-bold ${item.isDone ? 'bg-teal-100 text-teal-800' : 'bg-slate-100 text-slate-700'}">
+            ${item.isDone ? 'Zrealizowane' : (item.date < cur ? 'Zaległe' : item.date === cur ? 'Dziś' : 'Nadchodzące')}
+          </span>
+        </article>`;
+      }).join('') : '<p class="py-10 text-center text-slate-500">Brak wydarzeń w wybranym filtrze.</p>';
+
+      $$('[data-sched-ev]').forEach(el => el.onchange = async () => {
+        const [id, date] = el.dataset.schedEv.split('|');
+        await put('event_completions', { id: id + '|' + date, eventId: id, date, done: el.checked, completedAt: new Date().toISOString() });
+        renderSchedule();
+      });
+    }
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  /* RENDEROWANIE: GRUPY */
+  async function renderGroups() {
+    const [rawGroups, events] = await Promise.all([all('groups'), all('events')]);
+    const groups = rawGroups.map(normalized).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
+
+    $('#empty-groups').hidden = !!groups.length;
+    $('#groups-list').innerHTML = groups.map(g => {
+      const color = g.color || '#0f766e';
+      return `<article class="rounded-lg border bg-white shadow-sm overflow-hidden" data-group-id="${g.id}" style="border-color:${color}44">
+        <div class="group-header flex items-center justify-between p-4 cursor-pointer" style="background:${color}18; border-bottom:1px solid ${color}33">
+          <div class="flex items-center gap-2">
+            <span class="group-arrow text-base font-bold select-none text-slate-600">▾</span>
+            <span class="h-4 w-4 rounded-full" style="background:${esc(color)}"></span>
+            <div>
+              <h2 class="font-extrabold text-base">${esc(g.name)}</h2>
+              <p class="text-xs text-slate-500 font-semibold">${g.subgroups.length} podgrup(y)</p>
+            </div>
+          </div>
+          <div class="flex gap-1" onclick="event.stopPropagation()">
+            <button data-gedit="${g.id}" class="p-2 text-teal-700 hover:bg-white/50 rounded"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+            <button data-gdel="${g.id}" class="p-2 text-rose-600 hover:bg-white/50 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+          </div>
+        </div>
+
+        <div class="group-body p-3 space-y-3">
+          ${g.subgroups.map((sg, sgIdx) => `
+            <section class="subgroup-section rounded-md border p-3" data-subgroup-id="${sg.id}" style="background:${color}08; border-color:${color}25">
+              <div class="subgroup-header flex items-center justify-between cursor-pointer border-b pb-2" style="border-color:${color}20">
+                <b class="text-sm flex items-center gap-1.5"><span class="subgroup-arrow select-none text-xs">▾</span> ${sgIdx + 1}. ${esc(sg.name)}</b>
+                <div class="flex gap-1" onclick="event.stopPropagation()">
+                  <button data-sgedit="${g.id}|${sg.id}" class="p-1 text-teal-700"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                  <button data-sgdel="${g.id}|${sg.id}" class="p-1 text-rose-600"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+              <div class="subgroup-body mt-2">
+                <ul class="space-y-1.5">
+                  ${sg.tasks.map((t, tIdx) => `
+                    <li class="flex items-center gap-2 rounded border-l-4 bg-white px-3 py-2 text-sm shadow-sm" style="border-left-color:${color}">
+                      <span class="text-xs text-slate-400 font-mono">${tIdx + 1}</span>
+                      <span class="min-w-0 flex-1 truncate font-medium">${esc(t.name)}</span>
+                      <button data-tedit="${g.id}|${sg.id}|${t.id}" class="p-1 text-teal-700"><i data-lucide="pencil" class="w-3.5 h-3.5"></i></button>
+                      <button data-tdel="${g.id}|${sg.id}|${t.id}" class="p-1 text-rose-600"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                    </li>
+                  `).join('') || '<li class="py-1 text-xs text-slate-400">Brak kroków. Kliknij poniżej, aby dodać zadanie.</li>'}
+                </ul>
+                <button data-tadd="${g.id}|${sg.id}" class="mt-2 w-full rounded bg-white py-1.5 text-xs font-bold text-teal-800 border border-slate-200 hover:bg-slate-50">+ Dodaj zadanie</button>
+              </div>
+            </section>
+          `).join('')}
+          <button data-sgadd="${g.id}" class="w-full rounded-md bg-teal-50 py-2 text-xs font-bold text-teal-800 border border-teal-200 hover:bg-teal-100">+ Dodaj podgrupę</button>
+        </div>
+      </article>`;
+    }).join('');
+
+    /* Wydarzenia w grupach */
+    $('#events-list').innerHTML = events.length ? events.map(ev => `
+      <article class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+        <div>
+          <b>${esc(ev.name)}</b>
+          <p class="text-xs text-slate-500">Data bazowa: ${ev.baseDate} · ${ev.repeat === 'repeat' ? `co ${ev.interval} ${ev.unit}` : 'Jednorazowe'}</p>
+        </div>
+        <div class="flex gap-1">
+          <button data-evedit="${ev.id}" class="p-2 text-teal-700 hover:bg-slate-50 rounded"><i data-lucide="pencil" class="w-4 h-4"></i></button>
+          <button data-evdel="${ev.id}" class="p-2 text-rose-600 hover:bg-slate-50 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+        </div>
+      </article>
+    `).join('') : '<p class="text-sm text-slate-400">Brak zdefiniowanych terminów.</p>';
+
+    /* Obsługa Akordeonu */
+    $$('.group-header').forEach(header => {
+      header.onclick = () => {
+        const gid = header.closest('article').dataset.groupId;
+        const st = getAccordion();
+        st['g:' + gid] = !st['g:' + gid];
+        setAccordion(st);
+        updateAccordionVisuals();
+      };
+    });
+
+    $$('.subgroup-header').forEach(header => {
+      header.onclick = () => {
+        const gid = header.closest('article').dataset.groupId;
+        const sid = header.closest('.subgroup-section').dataset.subgroupId;
+        const st = getAccordion();
+        st['s:' + gid + ':' + sid] = !st['s:' + gid + ':' + sid];
+        setAccordion(st);
+        updateAccordionVisuals();
+      };
+    });
+
+    updateAccordionVisuals();
+
+    /* Delegacja przycisków Edycji/Usuwania */
+    $$('[data-gedit]').forEach(b => b.onclick = () => openGroupModal(b.dataset.gedit));
+    $$('[data-gdel]').forEach(b => b.onclick = async () => {
+      if (confirm('Usunąć całą grupę wraz z podgrupami?')) {
+        await del('groups', b.dataset.gdel);
+        renderGroups();
+      }
+    });
+
+    $$('[data-sgadd]').forEach(b => b.onclick = () => openSubgroupModal(b.dataset.sgadd));
+    $$('[data-sgedit]').forEach(b => {
+      const [gid, sid] = b.dataset.sgedit.split('|');
+      b.onclick = () => openSubgroupModal(gid, sid);
+    });
+    $$('[data-sgdel]').forEach(b => {
+      const [gid, sid] = b.dataset.sgdel.split('|');
+      b.onclick = async () => {
+        if (confirm('Usunąć podgrupę?')) {
+          const g = normalized(await getOne('groups', gid));
+          g.subgroups = g.subgroups.filter(s => s.id !== sid);
+          await put('groups', g);
+          renderGroups();
+        }
+      };
+    });
+
+    $$('[data-tadd]').forEach(b => {
+      const [gid, sid] = b.dataset.tadd.split('|');
+      b.onclick = () => openTaskModal(gid, sid);
+    });
+    $$('[data-tedit]').forEach(b => {
+      const [gid, sid, tid] = b.dataset.tedit.split('|');
+      b.onclick = () => openTaskModal(gid, sid, tid);
+    });
+    $$('[data-tdel]').forEach(b => {
+      const [gid, sid, tid] = b.dataset.tdel.split('|');
+      b.onclick = async () => {
+        if (confirm('Usunąć zadanie?')) {
+          const g = normalized(await getOne('groups', gid));
+          const sg = g.subgroups.find(s => s.id !== sid);
+          if (sg) sg.tasks = sg.tasks.filter(t => t.id !== tid);
+          await put('groups', g);
+          renderGroups();
+        }
+      };
+    });
+
+    $$('[data-evedit]').forEach(b => b.onclick = () => openEventModal(b.dataset.evedit));
+    $$('[data-evdel]').forEach(b => b.onclick = async () => {
+      if (confirm('Usunąć termin?')) {
+        await del('events', b.dataset.evdel);
+        renderGroups();
+      }
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  /* RENDEROWANIE: USTAWIENIA */
+  async function renderSettings() {
+    const [cfg, hs] = await Promise.all([getCfg(), all('vacations')]);
+    $('#start').value = cfg.start;
+    $('#end').value = cfg.end;
+
+    $('#holidays').innerHTML = hs.sort((a, b) => a.start.localeCompare(b.start)).map(h => `
+      <div class="flex items-center justify-between rounded-md bg-slate-50 p-3 text-sm font-bold">
+        <span>🏖️ ${h.start} — ${h.end}</span>
+        <button data-hdel="${h.id}" class="text-rose-600 hover:bg-rose-50 p-1 rounded"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+      </div>
+    `).join('') || '<p class="text-sm text-slate-400">Brak zdefiniowanych okresów urlopowych.</p>';
+
+    $$('[data-hdel]').forEach(b => b.onclick = async () => {
+      await del('vacations', b.dataset.hdel);
+      renderSettings();
+    });
+
+    if (window.lucide) lucide.createIcons();
+  }
+
+  /* MODALE LOGIKA */
+  async function openGroupModal(id = '') {
+    const g = id ? await getOne('groups', id) : null;
+    $('#group-form').reset();
+    $('#group-id').value = g?.id || '';
+    $('#group-name').value = g?.name || '';
+    $('#group-color').value = g?.color || '#0f766e';
+    $('#group-modal').showModal();
+  }
+
+  async function openSubgroupModal(gid, sid = '') {
+    const g = normalized(await getOne('groups', gid));
+    const sg = sid ? g.subgroups.find(s => s.id === sid) : null;
+    $('#subgroup-form').reset();
+    $('#subgroup-group').value = gid;
+    $('#subgroup-id').value = sid;
+    $('#subgroup-name').value = sg?.name || '';
+    $('#subgroup-url').value = sg?.url || '';
+    $('#subgroup-modal').showModal();
+  }
+
+  async function openTaskModal(gid, sid, tid = '') {
+    const g = normalized(await getOne('groups', gid));
+    const sg = g.subgroups.find(s => s.id === sid);
+    const t = tid ? sg?.tasks.find(x => x.id === tid) : null;
+    $('#task-form').reset();
+    $('#task-group').value = gid;
+    $('#task-subgroup').value = sid;
+    $('#task-id').value = tid;
+    $('#task-name').value = t?.name || '';
+    $('#task-url').value = t?.url || '';
+    $('#task-modal').showModal();
+  }
+
+  async function openEventModal(id = '') {
+    const ev = id ? await getOne('events', id) : null;
+    $('#event-form').reset();
+    $('#event-id').value = ev?.id || '';
+    $('#event-name').value = ev?.name || '';
+    $('#event-url').value = ev?.url || '';
+    $('#event-date').value = ev?.baseDate || today();
+    $('#event-repeat').value = ev?.repeat || 'once';
+    $('#event-interval').value = ev?.interval || 1;
+    $('#event-unit').value = ev?.unit || 'days';
+    $('#event-interval-row').hidden = $('#event-repeat').value !== 'repeat';
+    $('#event-modal').showModal();
+  }
+
+  /* EKSPORT I IMPORT */
+  async function exportBackup() {
+    const [groups, vacations, completions, settings, events, evCompletions] = await Promise.all([
+      all('groups'), all('vacations'), all('completions'), all('settings'), all('events'), all('event_completions')
+    ]);
+    const data = {
+      version: 2,
+      exportDate: new Date().toISOString(),
+      groups,
+      vacations,
+      completions,
+      settings: settings.find(s => s.key === 'app') || { key: 'app', start: today(), end: addDays(today(), 120) },
+      events: events || [],
+      event_completions: evCompletions || []
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `rotask_backup_${today()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast('Kopia zapasowa wyeksportowana.');
+  }
+
+  async function importBackup(file) {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      if (!data || typeof data !== 'object') throw new Error('Nieprawidłowy plik JSON');
+
+      const stores = ['groups', 'vacations', 'completions', 'settings', 'events', 'event_completions'];
+      for (const st of stores) {
+        await clear(st);
+        const list = Array.isArray(data[st]) ? data[st] : (data[st] ? [data[st]] : []);
+        for (const item of list) await put(st, item);
+      }
+      toast('Dane zaimportowane pomyślnie!');
+      renderCurrentView();
+    } catch (e) {
+      console.error(e);
+      toast('Błąd podczas importu pliku.');
+    }
+  }
+
+  function renderCurrentView() {
+    if (currentView === 'today') renderToday();
+    else if (currentView === 'schedule') renderSchedule();
+    else if (currentView === 'groups') renderGroups();
+    else if (currentView === 'settings') renderSettings();
+  }
+
+  /* START APLIKACJI */
+  async function init() {
+    db = await openDB();
+    $('#date').textContent = today();
+
+    /* Nawigacja */
+    $$('.nav').forEach(btn => btn.onclick = () => {
+      currentView = btn.dataset.view;
+      $$('.view').forEach(v => v.hidden = v.id !== currentView + '-view');
+      $$('.nav').forEach(b => {
+        b.classList.toggle('active', b === btn);
+        b.classList.toggle('text-slate-500', b !== btn);
+      });
+      const titles = { today: 'Dzisiaj', schedule: 'Harmonogram', groups: 'Grupy i zadania', settings: 'Ustawienia' };
+      $('#title').textContent = titles[currentView];
+      renderCurrentView();
+    });
+
+    /* Filtry Harmonogramu */
+    $$('.schedule-tab').forEach(btn => btn.onclick = () => {
+      scheduleSubtab = btn.dataset.subtab;
+      $$('.schedule-tab').forEach(b => {
+        b.className = 'schedule-tab rounded-md px-4 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700');
+      });
+      renderSchedule();
+    });
+
+    $$('.filter').forEach(btn => btn.onclick = () => {
+      scheduleFilter = btn.dataset.filter;
+      $$('.filter').forEach(b => b.className = 'filter rounded-md px-3 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'));
+      renderSchedule();
+    });
+
+    $$('.ev-filter').forEach(btn => btn.onclick = () => {
+      eventFilter = btn.dataset.evFilter;
+      $$('.ev-filter').forEach(b => b.className = 'ev-filter rounded-md px-3 py-2 text-sm font-bold ' + (b === btn ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700'));
+      renderSchedule();
+    });
+
+    $('#collapse').onclick = () => {
+      scheduleCollapsed = !scheduleCollapsed;
+      $('#collapse').textContent = scheduleCollapsed ? 'Rozwiń' : 'Zwiń';
+      renderSchedule();
+    };
+
+    /* Przyciski Rozwiń/Zwiń w Grupach */
+    $('#expand-all').onclick = () => { setAccordion({}); updateAccordionVisuals(); };
+    $('#collapse-all').onclick = () => {
+      const st = {};
+      $$('#groups-list article').forEach(a => st['g:' + a.dataset.groupId] = true);
+      $$('#groups-list .subgroup-section').forEach(s => {
+        const gid = s.closest('article').dataset.groupId;
+        st['s:' + gid + ':' + s.dataset.subgroupId] = true;
+      });
+      setAccordion(st);
+      updateAccordionVisuals();
+    };
+
+    /* Formularze Submit */
+    $('#add-group').onclick = () => openGroupModal();
+    $('#group-form').onsubmit = async e => {
+      e.preventDefault();
+      const gid = $('#group-id').value || uid();
+      const old = $('#group-id').value ? await getOne('groups', gid) : null;
+      await put('groups', {
+        id: gid,
+        name: $('#group-name').value.trim(),
+        color: $('#group-color').value,
+        active: true,
+        created: old?.created || new Date().toISOString(),
+        subgroups: old?.subgroups || []
+      });
+      $('#group-modal').close();
+      renderGroups();
+    };
+
+    $('#subgroup-form').onsubmit = async e => {
+      e.preventDefault();
+      const gid = $('#subgroup-group').value;
+      const sid = $('#subgroup-id').value || uid();
+      const g = normalized(await getOne('groups', gid));
+      const oldSg = g.subgroups.find(s => s.id === sid);
+      const newSg = { id: sid, name: $('#subgroup-name').value.trim(), url: allowedUrl($('#subgroup-url').value), tasks: oldSg?.tasks || [] };
+      g.subgroups = $('#subgroup-id').value ? g.subgroups.map(s => s.id === sid ? newSg : s) : [...g.subgroups, newSg];
+      await put('groups', g);
+      $('#subgroup-modal').close();
+      renderGroups();
+    };
+
+    $('#task-form').onsubmit = async e => {
+      e.preventDefault();
+      const gid = $('#task-group').value, sid = $('#task-subgroup').value, tid = $('#task-id').value || uid();
+      const g = normalized(await getOne('groups', gid));
+      const sg = g.subgroups.find(s => s.id === sid);
+      const newTask = { id: tid, name: $('#task-name').value.trim(), url: allowedUrl($('#task-url').value) };
+      sg.tasks = $('#task-id').value ? sg.tasks.map(t => t.id === tid ? newTask : t) : [...sg.tasks, newTask];
+      await put('groups', g);
+      $('#task-modal').close();
+      renderGroups();
+    };
+
+    $('#add-event').onclick = () => openEventModal();
+    $('#event-repeat').onchange = () => $('#event-interval-row').hidden = $('#event-repeat').value !== 'repeat';
+    $('#event-form').onsubmit = async e => {
+      e.preventDefault();
+      const evid = $('#event-id').value || uid();
+      await put('events', {
+        id: evid,
+        name: $('#event-name').value.trim(),
+        url: allowedUrl($('#event-url').value),
+        baseDate: $('#event-date').value,
+        repeat: $('#event-repeat').value,
+        interval: Math.max(1, Number($('#event-interval').value) || 1),
+        unit: $('#event-unit').value
+      });
+      $('#event-modal').close();
+      renderGroups();
+      renderToday();
+    };
+
+    $('#holiday-form').onsubmit = async e => {
+      e.preventDefault();
+      const start = $('#holiday-start').value, end = $('#holiday-end').value;
+      if (end < start) return toast('Błędny zakres urlopu.');
+      await put('vacations', { id: uid(), start, end });
+      $('#holiday-form').reset();
+      renderSettings();
+    };
+
+    $('#save-range').onclick = async () => {
+      const start = $('#start').value, end = $('#end').value;
+      if (end < start) return toast('Deadline nie może być wcześniejszy.');
+      await put('settings', { key: 'app', start, end });
+      toast('Zapisano horyzont.');
+    };
+
+    $('#export').onclick = exportBackup;
+    $('#importFileInput').onchange = e => { if (e.target.files[0]) importBackup(e.target.files[0]); e.target.value = ''; };
+    $$('[data-close]').forEach(b => b.onclick = () => $(`#${b.dataset.close}`).close());
+
+    /* Domyślne załadowanie */
+    renderToday();
+  }
+
+  window.addEventListener('load', init);
+})();
+</script>
+</body>
+</html>
