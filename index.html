@@ -179,7 +179,7 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 
     <div class="mb-5 grid grid-cols-2 gap-3">
       <label class="text-xs font-bold text-slate-700"><span id="lbl-start-date">Aktywne od</span><input id="entry-start-date" type="date" required class="mt-1 w-full text-xs"></label>
-      <label class="text-xs font-bold text-slate-700">Aktywne do (opcjonalnie)<input id="entry-end-date" type="date" class="mt-1 w-full text-xs"></label>
+      <label class="text-xs font-bold text-slate-700"><span id="lbl-end-date">Aktywne do (opcjonalnie)</span><input id="entry-end-date" type="date" class="mt-1 w-full text-xs"></label>
     </div>
 
     <button type="submit" id="unified-submit-btn" class="w-full rounded-xl bg-teal-700 py-3 font-bold text-white shadow-sm hover:bg-teal-800">Zapisz wpis</button>
@@ -260,6 +260,15 @@ const settings = async () => {
   return { ...rec, startDate, start: startDate, end: `${d.getFullYear()}-12-31`, scheduleHorizonYears: years };
 };
 const scheduleMaxDate = async () => { const cfg = await settings(); return cfg.end; };
+const nextEventDate = (event, date, isMultiDayOnce) => {
+  if (isMultiDayOnce) return addDays(date, 1);
+  const count = Math.max(1, Number(event.interval) || 1), next = new Date(date + 'T12:00:00');
+  if (event.unit === 'weeks') next.setDate(next.getDate() + count * 7);
+  else if (event.unit === 'months') next.setMonth(next.getMonth() + count);
+  else if (event.unit === 'years') next.setFullYear(next.getFullYear() + count);
+  else next.setDate(next.getDate() + count);
+  return next.toLocaleDateString('en-CA');
+};
 
 function normalized(group) {
   if (!group) return { id: uid(), name: '', color: '#0f766e', subgroups: [] };
@@ -628,21 +637,17 @@ async function renderScheduleEvents() {
 
   const occurrences = new Map();
   for (const ev of (events || [])) {
+    const isMultiDayOnce = ev.repeat !== 'repeat' && ev.endDate && ev.endDate >= ev.baseDate;
     let cur = ev.baseDate, guard = 0;
     while (cur <= scheduleEnd && guard < 3650) {
+      if (ev.endDate && cur > ev.endDate) break;
       if (cur >= cfg.start) {
         if (!occurrences.has(cur)) occurrences.set(cur, []);
         const done = (ev.completedDates || []).includes(cur);
         if (scheduleEventFilter !== 'important' || ev.important) occurrences.get(cur).push({ event: ev, date: cur, done });
       }
-      if (ev.repeat !== 'repeat') break;
-      const count = Math.max(1, Number(ev.interval) || 1);
-      const d = new Date(cur + 'T12:00:00');
-      if (ev.unit === 'weeks') d.setDate(d.getDate() + count * 7);
-      else if (ev.unit === 'months') d.setMonth(d.getMonth() + count);
-      else if (ev.unit === 'years') d.setFullYear(d.getFullYear() + count);
-      else d.setDate(d.getDate() + count);
-      cur = d.toLocaleDateString('en-CA');
+      if (isMultiDayOnce || ev.repeat === 'repeat') cur = nextEventDate(ev, cur, isMultiDayOnce);
+      else break;
       guard++;
     }
   }
@@ -694,46 +699,14 @@ async function renderReminders() {
   const events = await all('events'), now = today(), end = addDays(now, 5), overdue = [], windowRows = [];
   for (const ev of (events || [])) {
     const comp = new Set(ev.completedDates || []), compAt = ev.completedAt || {};
+    const isMultiDayOnce = ev.repeat !== 'repeat' && ev.endDate && ev.endDate >= ev.baseDate;
     let cur = ev.baseDate, guard = 0;
-    while (cur <= now && guard < 100000) {
+    while (cur <= end && guard < 3650) {
+      if (ev.endDate && cur > ev.endDate) break;
       if (cur < now && (!comp.has(cur) || compAt[cur] === now)) overdue.push({ event: ev, date: cur, done: comp.has(cur) });
-      if (ev.repeat !== 'repeat') break;
-      const count = Math.max(1, Number(ev.interval) || 1);
-      const d = new Date(cur + 'T12:00:00');
-      if (ev.unit === 'weeks') d.setDate(d.getDate() + count * 7);
-      else if (ev.unit === 'months') d.setMonth(d.getMonth() + count);
-      else if (ev.unit === 'years') d.setFullYear(d.getFullYear() + count);
-      else d.setDate(d.getDate() + count);
-      cur = d.toLocaleDateString('en-CA');
-      guard++;
-    }
-
-    if (ev.repeat !== 'repeat') {
-      if (ev.baseDate >= now && ev.baseDate <= end) windowRows.push({ event: ev, date: ev.baseDate, done: comp.has(ev.baseDate) });
-      continue;
-    }
-
-    cur = ev.baseDate;
-    guard = 0;
-    while (cur < now && guard < 100000) {
-      const count = Math.max(1, Number(ev.interval) || 1);
-      const d = new Date(cur + 'T12:00:00');
-      if (ev.unit === 'weeks') d.setDate(d.getDate() + count * 7);
-      else if (ev.unit === 'months') d.setMonth(d.getMonth() + count);
-      else if (ev.unit === 'years') d.setFullYear(d.getFullYear() + count);
-      else d.setDate(d.getDate() + count);
-      cur = d.toLocaleDateString('en-CA');
-      guard++;
-    }
-    while (cur <= end && guard < 100000) {
-      windowRows.push({ event: ev, date: cur, done: comp.has(cur) });
-      const count = Math.max(1, Number(ev.interval) || 1);
-      const d = new Date(cur + 'T12:00:00');
-      if (ev.unit === 'weeks') d.setDate(d.getDate() + count * 7);
-      else if (ev.unit === 'months') d.setMonth(d.getMonth() + count);
-      else if (ev.unit === 'years') d.setFullYear(d.getFullYear() + count);
-      else d.setDate(d.getDate() + count);
-      cur = d.toLocaleDateString('en-CA');
+      if (cur >= now) windowRows.push({ event: ev, date: cur, done: comp.has(cur) });
+      if (isMultiDayOnce || ev.repeat === 'repeat') cur = nextEventDate(ev, cur, isMultiDayOnce);
+      else break;
       guard++;
     }
   }
@@ -932,7 +905,8 @@ window.openUnifiedModal = async function(type = 'task', opts = {}) {
     $('#section-event-priority').style.display = isTask ? 'none' : 'block';
     $('#section-event-repeat').style.display = isTask ? 'none' : 'block';
     
-    $('#lbl-start-date').textContent = isTask ? 'Aktywne od' : 'Data startu (Od)';
+      $('#lbl-start-date').textContent = isTask ? 'Aktywne od' : 'Data rozpoczęcia';
+      $('#lbl-end-date').textContent = isTask ? 'Aktywne do (opcjonalnie)' : 'Data zakończenia (opcjonalnie)';
     $('#unified-modal-title').textContent = isTask ? (opts.taskId ? 'Edytuj zadanie' : 'Nowe zadanie') : (opts.eventId ? 'Edytuj wydarzenie' : 'Nowe wydarzenie');
     $('#unified-submit-btn').textContent = isTask ? 'Zapisz zadanie' : 'Zapisz wydarzenie';
     $('#unified-duplicate-btn').textContent = isTask ? '❐ Duplikuj to zadanie' : '❐ Duplikuj to wydarzenie';
