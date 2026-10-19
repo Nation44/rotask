@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pl">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0f766e">
@@ -7,6 +7,7 @@
 <style>
 body{font-family:ui-rounded,"Avenir Next","Segoe UI",sans-serif}.view[hidden]{display:none}.active{color:#0f766e}.active svg{stroke-width:3}.nav.active{background:#ccfbf1;color:#0f766e}.nav:not(.active){color:#94a3b8}.nav.active::after{display:none !important}dialog::backdrop{background:#0f172a88}input[type=checkbox]{accent-color:#0f766e}dialog input:not([type=checkbox]):not([type=hidden]):not([type=file]),dialog select,#settings-view input:not([type=checkbox]):not([type=hidden]):not([type=file]){border:2px solid #cbd5e1;border-radius:.5rem;background:#f8fafc;padding:.625rem .875rem;font-size:.875rem;font-weight:500;color:#0f172a;outline:none}dialog select{background:#fff;cursor:pointer}dialog input:not([type=checkbox]):not([type=hidden]):not([type=file]):focus,dialog select:focus,#settings-view input:not([type=checkbox]):not([type=hidden]):not([type=file]):focus{border-color:#0d9488;box-shadow:0 0 0 2px rgb(20 184 166 / .2)}#group-color{border:2px solid #cbd5e1;border-radius:.5rem;padding:.25rem;height:2.75rem;background:#fff;cursor:pointer}.event-panel{border-color:#99f6e4;background:#f0fdfa}.event-panel-title{color:#115e59}.filter-pill{border:1px solid #ccfbf1;border-radius:9999px}.filter-pill-active{border-color:#0f766e;background:#0f766e;color:#fff}.segment-control{border:1px solid #99f6e4;background:#f0fdfa;border-radius:10px;padding:3px}.segment-control button{border-radius:7px;flex:1}.schedule-sticky{position:static}.schedule-sticky>.segment-control{position:sticky;top:0;z-index:30;background:#ffffffF2;backdrop-filter:blur(8px);padding-top:.5rem;padding-bottom:.5rem;border-bottom:1px solid #f1f5f9;box-shadow:0 1px 3px rgb(15 23 42 / .08)}.task-item,.task-title,.task-path-text{white-space:normal !important;word-break:break-word !important;overflow-wrap:break-word !important}#edit-toolbar{position:sticky !important;top:0 !important;z-index:30 !important;width:100% !important;background:#ffffffF2 !important;backdrop-filter:blur(4px);padding-top:.625rem !important;padding-bottom:.625rem !important;border-bottom:1px solid #f1f5f9 !important;box-shadow:0 1px 3px rgb(15 23 42 / .08)}.month-header-count,.month-badge,[data-count],[data-count-label]{text-transform:none !important}
 details summary::-webkit-details-marker{display:none}details summary{list-style:none}
+.group-today-acc[open] .details-arrow{transform:rotate(90deg)}
 </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800">
@@ -98,13 +99,42 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 
 <section id="settings-view" class="view px-4 py-5" hidden>
   <div class="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-extrabold">Horyzont planowania</h2><p class="mb-4 mt-1 text-sm text-slate-500">Data startu systemu i liczba lat widocznych w Harmonogramie.</p><div class="grid grid-cols-1 gap-3"><label class="text-sm font-bold">Początek<input id="schedule-start-date" type="date" class="mt-1 w-full rounded-md border-slate-300"></label><label class="text-sm font-bold">Horyzont w przód<select id="schedule-horizon-years" class="mt-1 w-full"><option value="1">1 rok</option><option value="2">2 lata</option><option value="3">3 lata</option><option value="5">5 lat</option></select></label></div><button id="save-horizon-btn" class="mt-4 w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz ustawienia horyzontu</button></div>
+  <div class="flex items-center justify-between p-3 bg-white rounded-xl border border-slate-200 mt-3">
+    <div>
+      <div class="font-bold text-slate-900 text-sm">Zgrupowany widok zadań (belki grup)</div>
+      <div class="text-xs text-slate-500">Wyświetla zadania w zakładce Dzisiaj podzielone na osobne belki grup</div>
+    </div>
+    <label class="relative inline-flex items-center cursor-pointer">
+      <input type="checkbox" id="setting-today-grouped" class="sr-only peer">
+      <div class="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-700"></div>
+    </label>
+  </div>
   <div class="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-extrabold">Okresy urlopowe</h2><p class="mb-4 mt-1 text-sm text-slate-500">W tych dniach nie ma zadań i kolejki są zamrożone.</p><form id="holiday-form" class="grid grid-cols-2 gap-3"><label class="text-sm font-bold">Od<input id="holiday-start" required type="date" class="mt-1 w-full rounded-md border-slate-300"></label><label class="text-sm font-bold">Do<input id="holiday-end" required type="date" class="mt-1 w-full rounded-md border-slate-300"></label><button class="col-span-2 rounded-md bg-sky-700 py-3 font-bold text-white">Dodaj okres urlopu</button></form><div id="holidays" class="mt-4 space-y-2"></div></div>
   <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-extrabold">Kopia zapasowa</h2><p class="mb-4 mt-1 text-sm text-slate-500">Grupy, kroki, odznaczenia, urlopy i ustawienia.</p><button id="export" class="mb-3 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 py-3 font-bold text-white"><i data-lucide="download"></i>Eksportuj do JSON</button><label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-teal-600 py-3 font-bold text-teal-800"><i data-lucide="upload"></i>Importuj z JSON<input id="importFileInput" hidden type="file" accept=".json,application/json"></label></div>
   <p class="mt-6 text-center text-xs font-medium text-slate-400">Rotask · wersja 1.6</p>
 </section>
 </main>
 
-<nav class="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white"><div class="mx-auto flex max-w-3xl justify-around"><button data-view="today" class="nav active flex flex-col items-center p-3 text-xs font-bold"><i data-lucide="sun"></i>Dzisiaj</button><button data-view="schedule" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500"><i data-lucide="table-properties"></i>Harmonogram</button><button data-view="groups" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500"><i data-lucide="layers-3"></i>Edycja</button><button data-view="settings" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500"><i data-lucide="settings-2"></i>Ustawienia</button></div></nav>
+<nav class="fixed bottom-0 left-0 right-0 border-t border-slate-200 bg-white z-40">
+  <div class="mx-auto flex max-w-3xl justify-around">
+    <button type="button" data-view="today" class="nav active flex flex-col items-center p-3 text-xs font-bold text-teal-700">
+      <i data-lucide="sun" class="h-5 w-5 mb-1"></i>
+      <span>Dzisiaj</span>
+    </button>
+    <button type="button" data-view="schedule" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500 hover:text-slate-700">
+      <i data-lucide="table-properties" class="h-5 w-5 mb-1"></i>
+      <span>Harmonogram</span>
+    </button>
+    <button type="button" data-view="groups" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500 hover:text-slate-700">
+      <i data-lucide="layers-3" class="h-5 w-5 mb-1"></i>
+      <span>Edycja</span>
+    </button>
+    <button type="button" data-view="settings" class="nav flex flex-col items-center p-3 text-xs font-bold text-slate-500 hover:text-slate-700">
+      <i data-lucide="settings-2" class="h-5 w-5 mb-1"></i>
+      <span>Ustawienia</span>
+    </button>
+  </div>
+</nav>
 
 <!-- MODALE -->
 <dialog id="group-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="group-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Grupa zadań</h2><button type="button" data-close="group-modal" class="p-1 text-slate-400 transition hover:text-slate-700">✕</button></div><input id="group-id" hidden><label class="mb-4 block text-sm font-bold">Nazwa<input id="group-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Języki"></label><label class="mb-5 block text-sm font-bold">Kolor<input id="group-color" type="color" value="#0f766e" class="mt-1 h-11 w-full"></label><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz grupę</button></form></dialog>
@@ -191,14 +221,126 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 <div id="toast" hidden class="fixed left-1/2 top-5 z-50 -translate-x-1/2 rounded-md bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg"></div>
 
 <script>
-const DB_NAME='RotaskApp_v2', DB_VERSION=2, $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
+// db.js — inicjalizacja IndexedDB, cache w pamięci, eksport/import JSON
+const DB_NAME = 'RotaskApp_v2', DB_VERSION = 2;
+
+let db;
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = () => {
+      ['groups', 'completions', 'vacations', 'settings', 'events'].forEach(n => {
+        if (!req.result.objectStoreNames.contains(n)) req.result.createObjectStore(n, { keyPath: n === 'settings' ? 'key' : 'id' });
+      });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+const store = (name, mode = 'readonly') => db.transaction(name, mode).objectStore(name);
+const req = (name, method, val, mode = 'readonly') => new Promise((res, rej) => { const r = store(name, mode)[method](val); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
+const AppCache = { groups: null, vacations: null, settings: null, completions: null, events: null };
+const _pendingAll = {};
+// cache-first: jeśli AppCache[name] jest już wypełniony, żadnego zapytania do IndexedDB nie wykonujemy;
+// równoległe pierwsze wywołania (np. renderAll przy starcie) współdzielą jedno zapytanie zamiast dublować odczyt
+const all = async name => {
+  if (AppCache[name]) return AppCache[name];
+  if (!_pendingAll[name]) {
+    _pendingAll[name] = req(name, 'getAll').then(result => {
+      AppCache[name] = result;
+      delete _pendingAll[name];
+      return result;
+    });
+  }
+  return _pendingAll[name];
+};
+const getOne = async (name, key) => {
+  const records = AppCache[name];
+  if (records) return records.find(record => (name === 'settings' ? record.key : record.id) === key);
+  return req(name, 'get', key);
+};
+const save = async (name, value) => {
+  const result = await req(name, 'put', value, 'readwrite'), records = AppCache[name];
+  if (records) { const key = name === 'settings' ? 'key' : 'id', index = records.findIndex(record => record[key] === value[key]); if (index < 0) records.push(value); else records[index] = value; }
+  return result;
+};
+const remove = async (name, key) => {
+  const result = await req(name, 'delete', key, 'readwrite'), records = AppCache[name];
+  if (records) { const field = name === 'settings' ? 'key' : 'id'; AppCache[name] = records.filter(record => record[field] !== key); }
+  return result;
+};
+
+async function exportBackup() {
+  const [groups, settingsRecords, vacations, completions, events] = await Promise.all([
+    all('groups'), all('settings'), all('vacations'), all('completions'), all('events')
+  ]);
+  const backup = {
+    version: 2,
+    exportDate: new Date().toISOString(),
+    groups: (groups || []).map(normalized),
+    settings: settingsRecords || [],
+    vacations: vacations || [],
+    completions: completions || [],
+    events: events || []
+  };
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `rotask_backup_${today()}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 100);
+  say('Kopia zapasowa została wyeksportowana.');
+}
+
+async function importBackup(file) {
+  try {
+    const text = await file.text();
+    const backup = JSON.parse(text);
+    if (!backup || typeof backup !== 'object') throw new Error('Nieprawidłowy plik JSON.');
+
+    if (!confirm('Czy na pewno chcesz zastąpić aktualne dane kopią zapasową?')) return;
+
+    const tx = db.transaction(['groups', 'settings', 'vacations', 'completions', 'events'], 'readwrite');
+    tx.objectStore('groups').clear();
+    tx.objectStore('settings').clear();
+    tx.objectStore('vacations').clear();
+    tx.objectStore('completions').clear();
+    tx.objectStore('events').clear();
+
+    (backup.groups || []).forEach(g => tx.objectStore('groups').put(g));
+
+    const sets = Array.isArray(backup.settings) ? backup.settings : (backup.settings ? [backup.settings] : []);
+    sets.forEach(s => tx.objectStore('settings').put(s));
+
+    (backup.vacations || []).forEach(v => tx.objectStore('vacations').put(v));
+    (backup.completions || []).forEach(c => tx.objectStore('completions').put(c));
+    (backup.events || []).forEach(e => tx.objectStore('events').put(e));
+
+    await new Promise((resolve, reject) => {
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    Object.keys(AppCache).forEach(name => AppCache[name] = null);
+    await renderAll();
+    await renderSettings();
+    say('Kopia zapasowa została pomyślnie zaimportowana!');
+  } catch (err) {
+    console.error(err);
+    say('Błąd podczas importu danych: ' + (err.message || 'Zły format pliku'));
+  }
+}
+
+// engine.js — narzędzia daty/formatowania oraz logika kalkulacji rotacji i zaległości
+const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAll(s)];
 const uid = () => crypto.randomUUID(), today = () => new Date().toLocaleDateString('en-CA');
 const addDays = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toLocaleDateString('en-CA'); };
 const html = v => String(v || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const completionKey = (date, groupId, taskId) => taskId ? `${date}|${groupId}|${taskId}` : `${date}|${groupId}`;
 const isTaskCompleted = (compMap, date, groupId, taskId) => Boolean(compMap.get(`${date}|${groupId}|${taskId}`) || compMap.get(`${date}|${groupId}`));
-
-let db, scheduleMode = 'tasks', scheduleFilter = 'all', scheduleEventFilter = 'all', mgmtEventFilter = 'all', isScheduleAllExpanded = false;
 
 window.getCleanRepeatText = function(repeatType, repeatInterval = 1) {
   const n = parseInt(repeatInterval, 10) || 1;
@@ -226,22 +368,6 @@ window.getScheduleSubtitle = function(dateStr, item, subgroup = null) {
   }
   return `${dateStr} (${dayName}) · ${cycleText}`;
 };
-
-function openDB() {
-  return new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
-      ['groups', 'completions', 'vacations', 'settings', 'events'].forEach(n => {
-        if (!req.result.objectStoreNames.contains(n)) req.result.createObjectStore(n, { keyPath: n === 'settings' ? 'key' : 'id' });
-      });
-    };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
-  });
-}
-const store = (name, mode = 'readonly') => db.transaction(name, mode).objectStore(name);
-const req = (name, method, val, mode = 'readonly') => new Promise((res, rej) => { const r = store(name, mode)[method](val); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); });
-const all = name => req(name, 'getAll'), getOne = (name, key) => req(name, 'get', key), save = (name, val) => req(name, 'put', val, 'readwrite'), remove = (name, key) => req(name, 'delete', key, 'readwrite');
 
 function say(t) { $('#toast').textContent = t; $('#toast').hidden = false; clearTimeout(say.timer); say.timer = setTimeout(() => $('#toast').hidden = true, 2800); }
 function groupBadge(group, subgroup, includeSubgroup = true) { return `<span class="inline-flex rounded-md px-2 py-1 text-xs font-extrabold text-white" style="background:${html(group.color || '#0f766e')}">${html(group.name)}${includeSubgroup ? ` • ${html(subgroup.name)}` : ''}</span>`; }
@@ -281,9 +407,24 @@ function normalized(group) {
       url: s.url || '',
       startDate: s.startDate || '',
       endDate: s.endDate || '',
-      tasks: Array.isArray(s.tasks) ? s.tasks.map(t => ({ ...t, startDate: t.startDate || '', endDate: t.endDate || '' })) : []
+      tasks: Array.isArray(s.tasks) ? s.tasks.map((t, index) => ({ ...t, startDate: t.startDate || '', endDate: t.endDate || '', orderIndex: Number.isFinite(Number(t.orderIndex)) ? Number(t.orderIndex) : index })) : []
     }))
   };
+}
+
+const isActiveOn = (item, date) => (!item.startDate || date >= item.startDate) && (!item.endDate || date <= item.endDate);
+const orderedTasks = tasks => [...tasks].sort((left, right) => left.orderIndex - right.orderIndex || String(left.createdAt || left.id).localeCompare(String(right.createdAt || right.id)));
+const reindexTasks = tasks => orderedTasks(tasks).map((task, index) => ({ ...task, orderIndex: index }));
+
+function subgroupActivationCount(date, group, subgroupId, holidaySet, workdayMap, config) {
+  let activations = 0;
+  for (let cursor = config.start; cursor < date; cursor = addDays(cursor, 1)) {
+    if (holidaySet.has(cursor)) continue;
+    const turn = workdayMap.get(cursor);
+    const activeSubgroups = group.subgroups.filter(subgroup => isActiveOn(subgroup, cursor));
+    if (turn !== undefined && activeSubgroups.length && activeSubgroups[turn % activeSubgroups.length].id === subgroupId) activations++;
+  }
+  return activations;
 }
 
 function fastNestedPlan(date, groups, holidaySet, workdayMap, config) {
@@ -291,23 +432,23 @@ function fastNestedPlan(date, groups, holidaySet, workdayMap, config) {
   if (date < config.start || date > config.end || holidaySet.has(date)) return [];
   const turn = workdayMap.get(date);
   if (turn === undefined) return [];
-  
+
   const result = [];
   groups.map(normalized).forEach(group => {
     if (group.active === false || !group.subgroups || !group.subgroups.length) return;
-    const activeSubgroups = group.subgroups.filter(sg => (!sg.startDate || date >= sg.startDate) && (!sg.endDate || date <= sg.endDate));
+    const activeSubgroups = group.subgroups.filter(sg => isActiveOn(sg, date));
     const subgroups = activeSubgroups;
     if (!subgroups.length) return;
-    
+
     const subgroupIndex = turn % subgroups.length;
     const subgroup = subgroups[subgroupIndex];
     if (!subgroup) return;
 
-    const activeTasks = (subgroup.tasks || []).filter(t => (!t.startDate || date >= t.startDate) && (!t.endDate || date <= t.endDate));
+    const activeTasks = orderedTasks((subgroup.tasks || []).filter(task => isActiveOn(task, date)));
     const tasks = subgroup.tasks && subgroup.tasks.length ? activeTasks : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
     if (!tasks.length) return;
 
-    const taskIndex = Math.floor(turn / subgroups.length) % tasks.length;
+    const taskIndex = subgroupActivationCount(date, group, subgroup.id, holidaySet, workdayMap, config) % tasks.length;
     const task = tasks[taskIndex];
     if (!task) return;
 
@@ -325,7 +466,7 @@ function getOverdueTasks(groups, holidays, config, completions) {
   const workdayMap = new Map();
   let workCount = 0, current = today();
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
-  
+
   const overdue = [];
   for (let d = config.start; d < current; d = addDays(d, 1)) {
     if (holidaySet.has(d)) continue;
@@ -341,8 +482,25 @@ function getOverdueTasks(groups, holidays, config, completions) {
   return overdue;
 }
 
+// ui.js — renderowanie widoków (Dzisiaj, Harmonogram, Edycja, Ustawienia)
+
+async function moveTask(groupId, subgroupId, taskId, direction) {
+  const group = normalized(await getOne('groups', groupId));
+  const subgroup = group.subgroups.find(item => item.id === subgroupId);
+  if (!subgroup) return;
+  const tasks = reindexTasks(subgroup.tasks), currentIndex = tasks.findIndex(task => task.id === taskId), targetIndex = currentIndex + direction;
+  if (currentIndex < 0 || targetIndex < 0 || targetIndex >= tasks.length) return;
+  [tasks[currentIndex], tasks[targetIndex]] = [tasks[targetIndex], tasks[currentIndex]];
+  subgroup.tasks = tasks.map((task, index) => ({ ...task, orderIndex: index }));
+  await save('groups', group);
+  renderAll();
+}
+
+const GROUP_TODAY_LIMIT = 10;
+
 async function renderTodayV2() {
-  const [groupsRaw, holidays, config, completions] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions')]);
+  const [groupsRaw, holidays, config, completions, settingsRecords] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions'), all('settings')]);
+  const isGrouped = !!(settingsRecords || []).find(s => s.key === 'today_grouped_view')?.val;
   const groups = (groupsRaw || []).map(normalized);
   const current = today(), compMap = new Map((completions || []).map(c => [c.id, c.done]));
   const holidaySet = new Set();
@@ -354,50 +512,100 @@ async function renderTodayV2() {
   const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config);
   const overdue = getOverdueTasks(groups, holidays, config, completions);
 
-  $('#holiday-note').hidden = !holidaySet.has(current);
-  $('#empty-today').hidden = holidaySet.has(current) || items.length > 0;
-  $('#summary').innerHTML = holidaySet.has(current) ? '<b>📋 Zadania</b><span class="text-sm font-bold text-teal-300">Dzień wolny</span>' : `<b>📋 Zadania dziś</b><span class="text-sm font-bold text-teal-300">${items.filter(i => isTaskCompleted(compMap, current, i.group.id, i.task.id)).length} z ${items.length} wykonane</span>`;
+  const holidayNoteEl = $('#holiday-note'); if (holidayNoteEl) holidayNoteEl.hidden = !holidaySet.has(current);
+  const emptyTodayEl = $('#empty-today'); if (emptyTodayEl) emptyTodayEl.hidden = holidaySet.has(current) || items.length > 0;
+  const summaryEl = $('#summary');
+  if (summaryEl) summaryEl.innerHTML = holidaySet.has(current) ? '<b>📋 Zadania</b><span class="text-sm font-bold text-teal-300">Dzień wolny</span>' : `<b>📋 Zadania dziś</b><span class="text-sm font-bold text-teal-300">${items.filter(i => isTaskCompleted(compMap, current, i.group.id, i.task.id)).length} z ${items.length} wykonane</span>`;
 
   const backlogPanel = $('#backlog-panel');
-  backlogPanel.hidden = !overdue.length;
-  backlogPanel.open = overdue.length > 0 && localStorage.getItem('rotask_overdue_tasks_open') !== 'false';
-  $('#backlog-summary').textContent = `⚠️ Zaległe zadania (${overdue.length})`;
-  
-  $('#backlog-list').innerHTML = overdue.map(item => {
+  if (backlogPanel) {
+    backlogPanel.hidden = isGrouped || !overdue.length;
+    backlogPanel.open = overdue.length > 0 && localStorage.getItem('rotask_overdue_tasks_open') !== 'false';
+  }
+  const backlogSummaryEl = $('#backlog-summary'); if (backlogSummaryEl) backlogSummaryEl.textContent = `⚠️ Zaległe zadania (${overdue.length})`;
+
+  const renderBacklogCard = item => {
     const daysLate = Math.round((new Date(current + 'T12:00:00') - new Date(item.date + 'T12:00:00')) / 86400000);
-    const lateBadge = daysLate === 1 ? 'ZALEGŁE 1 DZIEŃ' : `ZALEGŁE ${daysLate} DNI`;
+    const lateBadge = daysLate === 1 ? '1 dzień po' : `${daysLate} dni po`;
     const cycle = window.getScheduleSubtitle(item.date, { repeatUnit: 'days', repeatInterval: item.subgroupCount * item.taskCount, isRotation: true }, item.subgroup);
     const subgroup = item.subgroup.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.subgroup.url)}">${html(item.subgroup.name)}</a>` : html(item.subgroup.name);
     const task = item.task.fallback ? '' : ` · ${item.task.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.task.url)}">${html(item.task.name)}</a>` : html(item.task.name)}`;
     const hierarchy = `${html(item.group.name)} <span class="text-slate-400">·</span> ${subgroup}${task}`;
     return `<label class="flex cursor-pointer items-start gap-3 rounded-lg border border-amber-200 bg-white p-3 text-sm shadow-sm ${item.completed ? 'opacity-60 bg-slate-50' : ''}">
       <input data-v2-backlog="${item.date}|${item.group.id}|${item.task.id}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${item.completed ? 'checked' : ''}>
-      <span class="min-w-0 flex-1">
-        <span class="flex items-start justify-between gap-3">
-          <span class="flex min-w-0 items-center gap-2">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-start justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-2">
             <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:${html(item.group.color || '#d97706')}"></span>
             <span class="task-title min-w-0 font-bold ${item.completed ? 'line-through text-slate-400' : 'text-slate-900'}">${hierarchy}</span>
-          </span>
-          <div class="flex items-center gap-1.5 shrink-0"><span class="status-badge shrink-0 whitespace-nowrap rounded px-2.5 py-1 text-[10px] font-extrabold text-white ${item.completed ? 'bg-emerald-600' : 'bg-amber-600'}">${item.completed ? 'ZROBIONE' : lateBadge}</span><button type="button" data-task-edit="${item.group.id}|${item.subgroup.id}|${item.task.id}" class="p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button></div>
-        </span>
-        <span class="mt-1 block text-xs font-medium ${item.completed ? 'text-slate-400' : 'text-slate-500'}">${cycle}</span>
-      </span>
+          </div>
+          <button type="button" data-task-edit="${item.group.id}|${item.subgroup.id}|${item.task.id}" class="shrink-0 p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+        </div>
+        <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
+          <span class="text-xs font-medium ${item.completed ? 'text-slate-400' : 'text-slate-500'}">${cycle}</span>
+          <span class="status-badge shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-extrabold text-white ${item.completed ? 'bg-emerald-600' : 'bg-amber-600'}" data-original-text="${lateBadge}">${item.completed ? 'ZROBIONE' : lateBadge}</span>
+        </div>
+      </div>
     </label>`;
-  }).join('');
+  };
+  const backlogListEl = $('#backlog-list');
+  if (backlogListEl) backlogListEl.innerHTML = isGrouped ? '' : overdue.map(renderBacklogCard).join('');
 
-  $('#today-list').innerHTML = items.map(item => {
+  const renderTodayCard = item => {
     const isDone = isTaskCompleted(compMap, current, item.group.id, item.task.id);
     const task = item.task.url ? `<a class="font-bold text-teal-800 underline break-words" target="_blank" href="${html(item.task.url)}">${html(item.task.name)}</a>` : `<b class="font-bold text-slate-900 break-words">${html(item.task.name)}</b>`;
     const hierarchy = item.task.fallback ? `${html(item.group.name)} <span class="text-slate-400">•</span> ${task}` : `${html(item.group.name)} <span class="text-slate-400">•</span> ${html(item.subgroup.name)} <span class="text-slate-400">•</span> ${task}`;
     return `<article class="task-item rounded-lg border bg-white px-3 py-2.5 shadow-sm ${isDone ? 'border-teal-200 opacity-60' : 'border-slate-200'}">
       <div class="flex items-start gap-2">
-        <input data-v2-today="${item.group.id}|${item.task.id}" type="checkbox" class="h-5 w-5 shrink-0" ${isDone ? 'checked' : ''}>
-        <span class="h-2.5 w-2.5 shrink-0 mt-1 rounded-full" style="background:${html(item.group.color || '#0f766e')}"></span>
-        <div class="task-title min-w-0 flex-1 break-words text-sm font-extrabold ${isDone ? 'line-through text-slate-400' : 'text-slate-900'}">${hierarchy}</div>
-        <div class="flex items-center gap-2 shrink-0"><span class="text-[11px] text-slate-500">co ${item.subgroupCount * item.taskCount} dni</span><button type="button" data-task-edit="${item.group.id}|${item.subgroup.id}|${item.task.id}" class="p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button></div>
+        <input data-v2-today="${item.group.id}|${item.task.id}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${isDone ? 'checked' : ''}>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex min-w-0 items-center gap-2">
+              <span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:${html(item.group.color || '#0f766e')}"></span>
+              <span class="task-title min-w-0 break-words text-sm font-extrabold ${isDone ? 'line-through text-slate-400' : 'text-slate-900'}">${hierarchy}</span>
+            </div>
+            <button type="button" data-task-edit="${item.group.id}|${item.subgroup.id}|${item.task.id}" class="shrink-0 p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+          </div>
+          <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
+            <span class="text-xs text-slate-500">co ${item.subgroupCount * item.taskCount} dni</span>
+          </div>
+        </div>
       </div>
     </article>`;
-  }).join('');
+  };
+
+  const renderGroupedTasks = () => {
+    const entries = new Map();
+    const add = (groupId, render) => { if (!entries.has(groupId)) entries.set(groupId, []); entries.get(groupId).push(render); };
+    overdue.forEach(item => add(item.group.id, () => renderBacklogCard(item)));
+    items.forEach(item => add(item.group.id, () => renderTodayCard(item)));
+    return groups.filter(group => entries.has(group.id)).map(group => {
+      const renders = entries.get(group.id), hiddenCount = renders.length - GROUP_TODAY_LIMIT;
+      return `<details class="group-today-acc border rounded-xl overflow-hidden mb-3 bg-white border-slate-200 shadow-sm" open>
+        <summary class="flex items-center justify-between p-3 bg-slate-50 cursor-pointer select-none">
+          <div class="flex items-center gap-2 min-w-0">
+            <i data-lucide="chevron-right" class="h-4 w-4 text-slate-400 transition-transform details-arrow"></i>
+            <span class="h-3 w-3 rounded-full shrink-0" style="background:${html(group.color || '#0f766e')}"></span>
+            <span class="font-bold text-slate-900 truncate text-sm">${html(group.name)}</span>
+            <span class="text-xs text-slate-400">(${renders.length})</span>
+          </div>
+          <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
+            <button type="button" class="p-1.5 text-slate-500 hover:text-teal-700 hover:bg-slate-200 rounded-lg transition" title="Dodaj podgrupę / zadanie" onclick="openUnifiedModal('task', { groupId: '${html(group.id)}' })">
+              <i data-lucide="plus" class="h-4 w-4"></i>
+            </button>
+            <button type="button" class="p-1.5 text-slate-500 hover:text-teal-700 hover:bg-slate-200 rounded-lg transition" title="Edytuj grupę / interwał" onclick="groupModal('${html(group.id)}')">
+              <i data-lucide="pencil" class="h-4 w-4"></i>
+            </button>
+          </div>
+        </summary>
+        <div class="space-y-3 p-3">${renders.slice(0, GROUP_TODAY_LIMIT).map(render => render()).join('')}</div>
+        ${hiddenCount > 0 ? `<div class="text-center text-xs text-slate-400 py-2 border-t border-slate-100">+ ${hiddenCount} kolejnych zadań ukrytych</div>` : ''}
+      </details>`;
+    }).join('');
+  };
+
+  const todayListEl = $('#today-list');
+  if (todayListEl) todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : items.map(renderTodayCard).join('');
 
   $$('[data-v2-today]').forEach(input => input.onchange = async () => {
     const [groupId, taskId] = input.dataset.v2Today.split('|');
@@ -436,7 +644,7 @@ async function renderTodayV2() {
     const [groupId, subgroupId, taskId] = button.dataset.taskEdit.split('|');
     openUnifiedModal('task', { groupId, subgroupId, taskId });
   });
-  if (window.lucide) lucide.createIcons();
+  if (window.lucide) lucide.createIcons({ root: $('#today-view') });
 }
 
 async function renderScheduleV2() {
@@ -456,30 +664,34 @@ async function renderScheduleV2() {
   if (scheduleFilter === 'future') dates = dates.filter(d => d >= currentDate);
   if (scheduleFilter === 'overdue') dates = dates.filter(d => d < currentDate && fastNestedPlan(d, groups, holidaySet, workdayMap, config).some(i => !isTaskCompleted(compMap, d, i.group.id, i.task.id)));
 
-  $('#range-info').textContent = `${dates.length} dni: ${config.start} - ${config.end}`;
+  const rangeInfoEl = $('#range-info'); if (rangeInfoEl) rangeInfoEl.textContent = `${dates.length} dni: ${config.start} - ${config.end}`;
   const list = $('#schedule-list');
+  if (!list) return;
   const monthGroups = new Map();
   dates.forEach(d => { const m = d.slice(0, 7); if (!monthGroups.has(m)) monthGroups.set(m, []); monthGroups.get(m).push(d); });
 
+  // leniwe ładowanie: tylko nagłówki miesięcy renderujemy od razu; licznik zadań i treść dnia
+  // liczymy dopiero po rozwinięciu (fastNestedPlan jest kosztowne, więc nie skanujemy całego zakresu z góry)
   list.innerHTML = '';
   for (const [monthKey, monthDates] of [...monthGroups.entries()].sort()) {
     const monthLabel = new Date(`${monthKey}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
-    const totalTasks = monthDates.reduce((tot, d) => tot + fastNestedPlan(d, groups, holidaySet, workdayMap, config).length, 0);
 
     const wrapper = document.createElement('div');
     wrapper.className = 'mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm';
-    
+
     const header = document.createElement('button');
     header.type = 'button';
     header.className = 'flex w-full items-center justify-between bg-slate-800 px-4 py-3 text-left text-sm font-extrabold text-white cursor-pointer';
-    header.innerHTML = `<span>📅 ${monthLabel}</span><span class="flex items-center gap-2"><span class="month-header-count text-xs font-normal opacity-90">${totalTasks} ${totalTasks === 1 ? 'zadanie' : 'zadań'}</span><span class="toggle-indicator text-slate-300 transition-transform">${isScheduleAllExpanded ? '▾' : '▸'}</span></span>`;
+    header.innerHTML = `<span>📅 ${monthLabel}</span><span class="flex items-center gap-2"><span class="month-header-count text-xs font-normal opacity-90"></span><span class="toggle-indicator text-slate-300 transition-transform">${isScheduleAllExpanded ? '▾' : '▸'}</span></span>`;
 
     const content = document.createElement('div');
     content.className = `month-content flex flex-col gap-2.5 p-2 ${isScheduleAllExpanded ? '' : 'hidden'}`;
 
     const renderMonthContent = () => {
+      let totalTasks = 0;
       content.innerHTML = monthDates.map(date => {
         const free = holidaySet.has(date), items = fastNestedPlan(date, groups, holidaySet, workdayMap, config);
+        totalTasks += items.length;
         const count = items.filter(i => isTaskCompleted(compMap, date, i.group.id, i.task.id)).length;
         const tasks = items.map(i => {
           const done = isTaskCompleted(compMap, date, i.group.id, i.task.id);
@@ -500,6 +712,9 @@ async function renderScheduleV2() {
           </div>
         </article>`;
       }).join('');
+
+      const countEl = header.querySelector('.month-header-count');
+      if (countEl) countEl.textContent = `${totalTasks} ${totalTasks === 1 ? 'zadanie' : 'zadań'}`;
 
       content.querySelectorAll('.row').forEach(r => r.onclick = () => {
         const det = r.nextElementSibling, chev = r.querySelector('.day-chevron');
@@ -528,8 +743,10 @@ async function renderScheduleV2() {
 
 async function renderGroupsV2() {
   const groups = (await all('groups')).map(normalized).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
-  $('#empty-groups').hidden = !!groups.length;
-  $('#groups-list').innerHTML = groups.map(g => `<details class="group-accordion rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" open style="border-color:${g.color}55">
+  const emptyGroupsEl = $('#empty-groups'); if (emptyGroupsEl) emptyGroupsEl.hidden = !!groups.length;
+  const groupsListEl = $('#groups-list');
+  if (!groupsListEl) return;
+  groupsListEl.innerHTML = groups.map(g => `<details class="group-accordion rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" open style="border-color:${g.color}55">
     <summary class="flex cursor-pointer items-center justify-between p-3.5 select-none transition hover:bg-slate-50" style="background:${g.color}15">
       <div class="flex items-center gap-2.5 min-w-0">
         <span class="group-chevron text-xs text-slate-500 transition-transform">▾</span>
@@ -551,7 +768,7 @@ async function renderGroupsV2() {
             <button data-v2-subgroup-delete="${g.id}|${sg.id}" title="Usuń podgrupę" class="p-1 text-rose-600 hover:bg-rose-100/60 rounded transition"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
           </div>
         </div>
-        <ul class="mt-2 space-y-1.5">${sg.tasks.map((t, ti) => `<li class="flex items-center gap-2 rounded-md border-l-4 bg-white px-3 py-2 shadow-xs border border-slate-100" style="border-left-color:${g.color}"><span class="text-[11px] font-bold text-slate-400">${ti + 1}</span><b class="min-w-0 flex-1 truncate text-xs text-slate-800">${html(t.name)}</b><button data-v2-task-edit="${g.id}|${sg.id}|${t.id}" title="Edytuj zadanie" class="p-1 text-teal-700 hover:bg-teal-50 rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button><button data-v2-task-delete="${g.id}|${sg.id}|${t.id}" title="Usuń zadanie" class="p-1 text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></li>`).join('') || '<li class="py-1 text-xs text-slate-400">Brak dodatkowych zadań</li>'}</ul>
+        <ul class="mt-2 space-y-1.5">${orderedTasks(sg.tasks).map((t, ti) => `<li class="flex items-center gap-2 rounded-md border-l-4 bg-white px-3 py-2 shadow-xs border border-slate-100" style="border-left-color:${g.color}"><span class="text-[11px] font-bold text-slate-400">${ti + 1}</span><b class="min-w-0 flex-1 truncate text-xs text-slate-800">${html(t.name)}</b><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|-1" title="Przenieś w górę" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-up" class="h-3.5 w-3.5"></i></button><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|1" title="Przenieś w dół" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button><button data-v2-task-edit="${g.id}|${sg.id}|${t.id}" title="Edytuj zadanie" class="p-1 text-teal-700 hover:bg-teal-50 rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button><button data-v2-task-delete="${g.id}|${sg.id}|${t.id}" title="Usuń zadanie" class="p-1 text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></li>`).join('') || '<li class="py-1 text-xs text-slate-400">Brak dodatkowych zadań</li>'}</ul>
         <button data-v2-task-add="${g.id}|${sg.id}" class="mt-2.5 w-full rounded-md py-1.5 text-xs font-bold text-teal-800 transition hover:bg-teal-100/80" style="background:${g.color}18">+ Dodaj zadanie</button>
       </section>`).join('')}
       <button data-v2-subgroup-add="${g.id}" class="w-full rounded-lg py-2 text-xs font-bold text-teal-900 transition hover:bg-teal-100" style="background:${g.color}22">+ Dodaj podgrupę</button>
@@ -564,21 +781,31 @@ async function renderGroupsV2() {
       if (ch) ch.textContent = acc.open ? '▾' : '▸';
     });
   });
+  $('#groups-list').querySelectorAll('[data-v2-group-edit]').forEach(button => button.onclick = event => {
+    event.preventDefault();
+    event.stopPropagation();
+    groupModal(button.dataset.v2GroupEdit);
+  });
 
   $('#groups-list').onclick = async e => {
     const btn = e.target.closest('button'); if (!btn) return;
     const act = Object.keys(btn.dataset).find(k => k.startsWith('v2')); if (!act) return;
     const vals = btn.dataset[act].split('|');
-    if (act === 'v2GroupEdit') return groupModal(vals[0]);
+    if (act === 'v2GroupEdit') {
+      e.preventDefault();
+      e.stopPropagation();
+      return groupModal(vals[0]);
+    }
     if (act === 'v2GroupDelete' && confirm('Usunąć grupę wraz z podgrupami?')) { await remove('groups', vals[0]); renderAll(); }
     if (act === 'v2SubgroupAdd') return subgroupModal(vals[0]);
     if (act === 'v2SubgroupEdit') return subgroupModal(vals[0], vals[1]);
     if (act === 'v2SubgroupDelete' && confirm('Usunąć podgrupę?')) { const g = normalized(await getOne('groups', vals[0])); g.subgroups = g.subgroups.filter(s => s.id !== vals[1]); await save('groups', g); renderAll(); }
     if (act === 'v2TaskAdd') return openUnifiedModal('task', { groupId: vals[0], subgroupId: vals[1] });
+    if (act === 'v2TaskMove') return moveTask(vals[0], vals[1], vals[2], Number(vals[3]));
     if (act === 'v2TaskEdit') return openUnifiedModal('task', { groupId: vals[0], subgroupId: vals[1], taskId: vals[2] });
-    if (act === 'v2TaskDelete' && confirm('Usunąć zadanie?')) { const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]); if (sg) sg.tasks = sg.tasks.filter(t => t.id !== vals[2]); await save('groups', g); renderAll(); }
+    if (act === 'v2TaskDelete' && confirm('Usunąć zadanie?')) { const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]); if (sg) sg.tasks = reindexTasks(sg.tasks.filter(t => t.id !== vals[2])); await save('groups', g); renderAll(); }
   };
-  if (window.lucide) lucide.createIcons();
+  if (window.lucide) { const groupsViewEl = $('#groups-view'); lucide.createIcons(groupsViewEl ? { root: groupsViewEl } : undefined); }
 }
 
 async function renderEventsList() {
@@ -611,7 +838,7 @@ async function renderEventsList() {
   list.querySelectorAll('[data-event-delete]').forEach(b => b.onclick = async () => {
     if (confirm('Usunąć wydarzenie wraz z historią?')) { await remove('events', b.dataset.eventDelete); renderAll(); }
   });
-  if (window.lucide) lucide.createIcons();
+  if (window.lucide) lucide.createIcons({ root: list });
 }
 
 async function renderScheduleEvents() {
@@ -656,30 +883,40 @@ async function renderScheduleEvents() {
   const monthGroups = new Map();
   dates.forEach(d => { const m = d.slice(0, 7); if (!monthGroups.has(m)) monthGroups.set(m, []); monthGroups.get(m).push(d); });
 
+  const renderMonthRows = mDates => mDates.map(d => {
+    const items = occurrences.get(d) || [];
+    const weekday = new Date(d + 'T12:00:00').toLocaleDateString('pl-PL', { weekday: 'long' });
+    return `<article class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm mb-2.5">
+      <div class="flex items-center justify-between font-bold text-slate-800">
+        <span class="capitalize">${d} · ${weekday}${d === now ? ' · dziś' : ''}</span>
+        <span class="text-xs text-slate-500">${items.length || ''}</span>
+      </div>
+      ${items.length ? `<div class="mt-2 space-y-2 border-t pt-2">${items.map(eventCard).join('')}</div>` : ''}
+    </article>`;
+  }).join('');
+
   list.innerHTML = [...monthGroups.entries()].sort().map(([mKey, mDates]) => {
     const mLabel = new Date(`${mKey}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
     const evCount = mDates.reduce((tot, d) => tot + (occurrences.get(d) || []).length, 0);
-    const rows = mDates.map(d => {
-      const items = occurrences.get(d) || [];
-      const weekday = new Date(d + 'T12:00:00').toLocaleDateString('pl-PL', { weekday: 'long' });
-      return `<article class="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm mb-2.5">
-        <div class="flex items-center justify-between font-bold text-slate-800">
-          <span class="capitalize">${d} · ${weekday}${d === now ? ' · dziś' : ''}</span>
-          <span class="text-xs text-slate-500">${items.length || ''}</span>
-        </div>
-        ${items.length ? `<div class="mt-2 space-y-2 border-t pt-2">${items.map(eventCard).join('')}</div>` : ''}
-      </article>`;
-    }).join('');
-
-    return `<details class="mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm" open>
+    return `<details data-event-month="${mKey}" class="mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <summary class="flex cursor-pointer items-center justify-between bg-slate-800 px-4 py-3 text-left text-sm font-extrabold text-white">
         <span>📅 ${mLabel}</span><span class="text-xs">${evCount} wydarzeń</span>
       </summary>
-      <div class="flex flex-col gap-2 p-2">${rows}</div>
+      <div class="event-month-content flex flex-col gap-2 p-2"></div>
     </details>`;
   }).join('');
 
-  list.querySelectorAll('[data-occ]').forEach(input => input.onchange = async () => {
+  // leniwe ładowanie treści miesiąca dopiero przy rozwinięciu <details>
+  list.querySelectorAll('[data-event-month]').forEach(month => month.addEventListener('toggle', () => {
+    if (!month.open || month.dataset.rendered) return;
+    const content = month.querySelector('.event-month-content');
+    content.innerHTML = renderMonthRows(monthGroups.get(month.dataset.eventMonth));
+    month.dataset.rendered = 'true';
+    if (window.lucide) lucide.createIcons({ root: content });
+  }));
+  list.onchange = async ev => {
+    const input = ev.target.closest('[data-occ]');
+    if (!input) return;
     const [eventId, date] = input.dataset.occ.split('|');
     const event = await getOne('events', eventId);
     if (!event) return;
@@ -690,9 +927,14 @@ async function renderScheduleEvents() {
     await save('events', event);
     renderScheduleEvents();
     renderReminders();
-  });
-  list.querySelectorAll('[data-event-edit]').forEach(button => button.onclick = () => openUnifiedModal('event', { eventId: button.dataset.eventEdit }));
-  if (window.lucide) lucide.createIcons();
+  };
+  list.onclick = event => {
+    const button = event.target.closest('[data-event-edit]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openUnifiedModal('event', { eventId: button.dataset.eventEdit });
+  };
 }
 
 async function renderReminders() {
@@ -715,44 +957,55 @@ async function renderReminders() {
   windowRows.sort((left, right) => left.date.localeCompare(right.date));
 
   const eventsPanel = $('#today-events-critical');
-  eventsPanel.hidden = !overdue.length;
-  eventsPanel.open = overdue.length > 0 && localStorage.getItem('rotask_overdue_events_open') !== 'false';
-  $('#today-events-critical-summary').textContent = `⚠️ Zaległe wydarzenia (${overdue.length})`;
-  
-  $('#today-events-critical-list').innerHTML = overdue.map(item => {
+  if (eventsPanel) {
+    eventsPanel.hidden = !overdue.length;
+    eventsPanel.open = overdue.length > 0 && localStorage.getItem('rotask_overdue_events_open') !== 'false';
+  }
+  const criticalSummaryEl = $('#today-events-critical-summary'); if (criticalSummaryEl) criticalSummaryEl.textContent = `⚠️ Zaległe wydarzenia (${overdue.length})`;
+
+  const criticalListEl = $('#today-events-critical-list');
+  if (criticalListEl) criticalListEl.innerHTML = overdue.map(item => {
     const diff = Math.round((new Date(item.date + 'T12:00:00') - new Date(now + 'T12:00:00')) / 86400000);
-    const lateBadge = Math.abs(diff) === 1 ? 'ZALEGŁE 1 DZIEŃ' : `ZALEGŁE ${Math.abs(diff)} DNI`;
+    const daysLate = Math.abs(diff);
+    const lateBadge = daysLate === 1 ? '1 dzień po' : `${daysLate} dni po`;
     const cycle = window.getScheduleSubtitle(item.date, item.event);
     const titleColor = item.done ? 'text-slate-400 line-through' : (item.event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900 font-extrabold');
     const nameEl = item.event.url ? `<a href="${html(item.event.url)}" target="_blank" rel="noopener" class="underline ${titleColor}">${html(item.event.name)}</a>` : `<span class="${titleColor}">${html(item.event.name)}</span>`;
     return `<label class="flex items-start gap-3 rounded-lg border border-purple-200 bg-white px-3 py-2.5 text-sm shadow-sm ${item.done ? 'opacity-60 bg-slate-50' : ''}">
       <input data-event-complete="${item.event.id}|${item.date}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${item.done ? 'checked' : ''}>
-      <span class="min-w-0 flex-1">
-        <span class="flex items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-start justify-between gap-2">
           <span class="task-title min-w-0 text-[15px]">${nameEl}</span>
-          <div class="flex items-center gap-1.5 shrink-0"><span class="status-badge shrink-0 whitespace-nowrap rounded px-2.5 py-1 text-[10px] font-extrabold text-white ${item.done ? 'bg-emerald-600' : 'bg-purple-700'}">${item.done ? 'ZROBIONE' : lateBadge}</span><button type="button" data-event-edit="${item.event.id}" class="p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button></div>
-        </span>
-        <span class="mt-1 block text-xs font-medium ${item.done ? 'text-slate-400' : 'text-purple-700/80'}">${cycle}</span>
-      </span>
+          <button type="button" data-event-edit="${item.event.id}" class="shrink-0 p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+        </div>
+        <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
+          <span class="text-xs font-medium ${item.done ? 'text-slate-400' : 'text-purple-700/80'}">${cycle}</span>
+          <span class="status-badge shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-extrabold text-white ${item.done ? 'bg-emerald-600' : 'bg-purple-700'}" data-original-text="${lateBadge}">${item.done ? 'ZROBIONE' : lateBadge}</span>
+        </div>
+      </div>
     </label>`;
   }).join('');
 
-  $('#upcoming-events').hidden = !windowRows.length;
-  $('#upcoming-events-summary').textContent = `${windowRows.filter(i => i.done).length} z ${windowRows.length} wykonane`;
-  $('#upcoming-events-list').innerHTML = windowRows.map(item => {
+  const upcomingEventsEl = $('#upcoming-events'); if (upcomingEventsEl) upcomingEventsEl.hidden = !windowRows.length;
+  const upcomingSummaryEl = $('#upcoming-events-summary'); if (upcomingSummaryEl) upcomingSummaryEl.textContent = `${windowRows.filter(i => i.done).length} z ${windowRows.length} wykonane`;
+  const upcomingListEl = $('#upcoming-events-list');
+  if (upcomingListEl) upcomingListEl.innerHTML = windowRows.map(item => {
     const badgeInfo = item.done ? { text: 'ZROBIONE', className: 'bg-emerald-600 text-white' } : getEventBadgeInfo(item.date, now);
     const cycle = window.getScheduleSubtitle(item.date, item.event);
     const titleColor = item.done ? 'text-slate-400 line-through' : (item.event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900 font-extrabold');
     const nameEl = item.event.url ? `<a href="${html(item.event.url)}" target="_blank" rel="noopener" class="underline ${titleColor}">${html(item.event.name)}</a>` : `<span class="${titleColor}">${html(item.event.name)}</span>`;
     return `<label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm ${item.done ? 'opacity-60 bg-slate-50' : ''}">
       <input data-event-complete="${item.event.id}|${item.date}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${item.done ? 'checked' : ''}>
-      <span class="min-w-0 flex-1">
-        <span class="flex items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <div class="flex items-start justify-between gap-2">
           <span class="task-title min-w-0 text-[15px]">${nameEl}</span>
-          <div class="flex items-center gap-1.5 shrink-0"><span class="status-badge shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-extrabold ${badgeInfo.className}">${badgeInfo.text}</span><button type="button" data-event-edit="${item.event.id}" class="p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button></div>
-        </span>
-        <span class="mt-1 block text-xs font-medium text-slate-500">${cycle}</span>
-      </span>
+          <button type="button" data-event-edit="${item.event.id}" class="shrink-0 p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+        </div>
+        <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
+          <span class="text-xs font-medium text-slate-500">${cycle}</span>
+          <span class="status-badge shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-extrabold ${badgeInfo.className}">${badgeInfo.text}</span>
+        </div>
+      </div>
     </label>`;
   }).join('');
 
@@ -771,99 +1024,47 @@ async function renderReminders() {
     event.stopPropagation();
     openUnifiedModal('event', { eventId: button.dataset.eventEdit });
   });
-  if (window.lucide) lucide.createIcons();
+  if (window.lucide) lucide.createIcons({ root: $('#today-view') });
 }
 
 async function renderSettings() {
-  const [c, hs] = await Promise.all([settings(), all('vacations')]);
+  const [c, hs, groupedSetting] = await Promise.all([settings(), all('vacations'), getOne('settings', 'today_grouped_view')]);
   $('#schedule-start-date').value = c.startDate || c.start;
   $('#schedule-horizon-years').value = String([1, 2, 3, 5].includes(Number(c.scheduleHorizonYears)) ? Number(c.scheduleHorizonYears) : 1);
   $('#holidays').innerHTML = (hs || []).sort((a, b) => a.start.localeCompare(b.start)).map(h => `<div class="flex justify-between items-center rounded-md bg-slate-50 p-3 text-sm font-bold">${h.start} - ${h.end}<button data-hd="${h.id}" class="text-rose-600 p-1"><i data-lucide="trash-2"></i></button></div>`).join('') || '<p class="text-sm text-slate-500">Brak urlopów.</p>';
   $$('[data-hd]').forEach(b => b.onclick = () => remove('vacations', b.dataset.hd).then(renderSettings));
-  if (window.lucide) lucide.createIcons();
-}
-
-async function exportBackup() {
-  const [groups, settingsRecords, vacations, completions, events] = await Promise.all([
-    all('groups'), all('settings'), all('vacations'), all('completions'), all('events')
-  ]);
-  const backup = {
-    version: 2,
-    exportDate: new Date().toISOString(),
-    groups: (groups || []).map(normalized),
-    settings: settingsRecords || [],
-    vacations: vacations || [],
-    completions: completions || [],
-    events: events || []
+  $('#setting-today-grouped').checked = !!groupedSetting?.val;
+  $('#setting-today-grouped').onchange = async e => {
+    await save('settings', { key: 'today_grouped_view', val: e.target.checked });
+    if (!$('#today-view').hidden) renderTodayV2();
   };
-  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `rotask_backup_${today()}.json`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 100);
-  say('Kopia zapasowa została wyeksportowana.');
+  if (window.lucide) lucide.createIcons({ root: $('#settings-view') });
 }
 
-async function importBackup(file) {
-  try {
-    const text = await file.text();
-    const backup = JSON.parse(text);
-    if (!backup || typeof backup !== 'object') throw new Error('Nieprawidłowy plik JSON.');
-    
-    if (!confirm('Czy na pewno chcesz zastąpić aktualne dane kopią zapasową?')) return;
-    
-    const tx = db.transaction(['groups', 'settings', 'vacations', 'completions', 'events'], 'readwrite');
-    tx.objectStore('groups').clear();
-    tx.objectStore('settings').clear();
-    tx.objectStore('vacations').clear();
-    tx.objectStore('completions').clear();
-    tx.objectStore('events').clear();
-    
-    (backup.groups || []).forEach(g => tx.objectStore('groups').put(g));
-    
-    const sets = Array.isArray(backup.settings) ? backup.settings : (backup.settings ? [backup.settings] : []);
-    sets.forEach(s => tx.objectStore('settings').put(s));
-    
-    (backup.vacations || []).forEach(v => tx.objectStore('vacations').put(v));
-    (backup.completions || []).forEach(c => tx.objectStore('completions').put(c));
-    (backup.events || []).forEach(e => tx.objectStore('events').put(e));
-    
-    await new Promise((resolve, reject) => {
-      tx.oncomplete = resolve;
-      tx.onerror = () => reject(tx.error);
-    });
-    
-    await renderAll();
-    await renderSettings();
-    say('Kopia zapasowa została pomyślnie zaimportowana!');
-  } catch (err) {
-    console.error(err);
-    say('Błąd podczas importu danych: ' + (err.message || 'Zły format pliku'));
-  }
-}
+async function renderAll() { await Promise.all([renderTodayV2(), renderScheduleV2(), renderGroupsV2(), renderEventsList(), renderScheduleEvents(), renderReminders()]); }
 
-async function groupModal(gid) { const g = gid && await getOne('groups', gid); $('#group-form').reset(); $('#group-id').value = g?.id || ''; $('#group-name').value = g?.name || ''; $('#group-color').value = g?.color || '#0f766e'; $('#group-modal').showModal(); }
+// app.js — punkt wejścia, stan zakładek, obsługa modali i formularzy
+
+let scheduleMode = 'tasks', scheduleFilter = 'all', scheduleEventFilter = 'all', mgmtEventFilter = 'all', isScheduleAllExpanded = false;
+
+async function groupModal(gid) { const g = gid && normalized(await getOne('groups', gid)); $('#group-form').reset(); $('#group-id').value = g?.id || ''; $('#group-name').value = g?.name || ''; $('#group-color').value = g?.color || '#0f766e'; $('#group-modal').showModal(); }
 async function subgroupModal(gid, sid) { const g = normalized(await getOne('groups', gid)), s = sid && g.subgroups.find(x => x.id === sid); $('#subgroup-form').reset(); $('#subgroup-group').value = gid; $('#subgroup-id').value = sid || ''; $('#subgroup-name').value = s?.name || ''; $('#subgroup-url').value = s?.url || ''; $('#subgroup-start-date').value = s?.startDate || today(); $('#subgroup-end-date').value = s?.endDate || ''; $('#subgroup-modal').showModal(); }
 
 window.openUnifiedModal = async function(type = 'task', opts = {}) {
   const form = $('#unified-form');
   form.reset();
   const groups = (await all('groups')).map(normalized);
-  
+
   const groupSelect = $('#entry-group'), subgroupSelect = $('#entry-subgroup');
   const inlineGroupRow = $('#inline-new-group-row'), inlineSubgroupRow = $('#inline-new-subgroup-row');
-  
+
   inlineGroupRow.style.display = 'none';
   inlineSubgroupRow.style.display = 'none';
 
   let groupHtml = groups.map(g => `<option value="${g.id}">${html(g.name)}</option>`).join('');
   groupHtml += `<option value="__NEW_GROUP__">➕ Nowa grupa...</option>`;
   groupSelect.innerHTML = groupHtml;
-  
+
   const updateSubgroups = (gid) => {
     if (gid === '__NEW_GROUP__') {
       inlineGroupRow.style.display = 'block';
@@ -880,7 +1081,7 @@ window.openUnifiedModal = async function(type = 'task', opts = {}) {
     subgroupSelect.innerHTML = subHtml;
     inlineSubgroupRow.style.display = (subgroupSelect.value === '__NEW_SUBGROUP__') ? 'block' : 'none';
   };
-  
+
   groupSelect.onchange = () => updateSubgroups(groupSelect.value);
   subgroupSelect.onchange = () => {
     inlineSubgroupRow.style.display = (subgroupSelect.value === '__NEW_SUBGROUP__') ? 'block' : 'none';
@@ -900,11 +1101,11 @@ window.openUnifiedModal = async function(type = 'task', opts = {}) {
     const isTask = mode === 'task';
     $('#type-btn-task').className = isTask ? 'bg-teal-700 px-3 py-2 text-sm font-bold text-white transition' : 'px-3 py-2 text-sm font-bold text-teal-900 transition';
     $('#type-btn-event').className = !isTask ? 'bg-teal-700 px-3 py-2 text-sm font-bold text-white transition' : 'px-3 py-2 text-sm font-bold text-teal-900 transition';
-    
+
     $('#section-task-hierarchy').style.display = isTask ? 'block' : 'none';
     $('#section-event-priority').style.display = isTask ? 'none' : 'block';
     $('#section-event-repeat').style.display = isTask ? 'none' : 'block';
-    
+
       $('#lbl-start-date').textContent = isTask ? 'Aktywne od' : 'Data rozpoczęcia';
       $('#lbl-end-date').textContent = isTask ? 'Aktywne do (opcjonalnie)' : 'Data zakończenia (opcjonalnie)';
     $('#unified-modal-title').textContent = isTask ? (opts.taskId ? 'Edytuj zadanie' : 'Nowe zadanie') : (opts.eventId ? 'Edytuj wydarzenie' : 'Nowe wydarzenie');
@@ -977,13 +1178,13 @@ async function ensureSeedData() {
   }
 }
 
-async function renderAll() { await Promise.all([renderTodayV2(), renderScheduleV2(), renderGroupsV2(), renderEventsList(), renderScheduleEvents(), renderReminders()]); }
-
 async function boot() {
   db = await openDB();
   await ensureSeedData();
   $('#date').textContent = today();
-  
+  // ikony dolnej nawigacji są statyczne (nie odświeżają się przy renderach widoków), więc inicjalizujemy je raz
+  if (window.lucide) lucide.createIcons({ root: $('nav') });
+
   $('#backlog-panel').addEventListener('toggle', e => localStorage.setItem('rotask_overdue_tasks_open', String(e.target.open)));
   $('#today-events-critical').addEventListener('toggle', e => localStorage.setItem('rotask_overdue_events_open', String(e.target.open)));
 
@@ -997,13 +1198,17 @@ async function boot() {
 
   $$('.nav').forEach(btn => btn.onclick = () => {
     const target = btn.dataset.view;
+    // krok 1-2: przełączenie widoku i stanu nawigacji musi być natychmiastowe (synchroniczne)
     $$('.view').forEach(v => v.hidden = v.id !== target + '-view');
     $$('.nav').forEach(n => n.classList.toggle('active', n === btn));
     $('#title').textContent = { today: 'Dzisiaj', schedule: 'Harmonogram', groups: 'Edycja', settings: 'Ustawienia' }[target] || 'Rotask';
-    if (target === 'today') renderTodayV2();
-    if (target === 'schedule') { if (scheduleMode === 'tasks') renderScheduleV2(); else renderScheduleEvents(); }
-    if (target === 'groups') { renderGroupsV2(); renderEventsList(); }
-    if (target === 'settings') renderSettings();
+    // krok 3: renderowanie danych odłożone na kolejny tick, tylko dla aktywowanego widoku
+    setTimeout(() => {
+      if (target === 'today') renderTodayV2();
+      else if (target === 'schedule') { scheduleMode === 'tasks' ? renderScheduleV2() : renderScheduleEvents(); }
+      else if (target === 'groups') { renderGroupsV2(); renderEventsList(); }
+      else if (target === 'settings') renderSettings();
+    }, 0);
   });
 
   $('#collapse').onclick = () => {
@@ -1133,8 +1338,9 @@ async function boot() {
 
       if (!sg) return alert('Nie znaleziono wybranej podgrupy.');
 
-      const task = { id: tid || uid(), name, url: urlVal, startDate: startVal, endDate: endVal };
-      sg.tasks = tid ? sg.tasks.map(t => t.id === tid ? task : t) : [...sg.tasks, task];
+      const existingTask = sg.tasks.find(task => task.id === tid);
+      const task = { id: tid || uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: existingTask?.orderIndex ?? sg.tasks.length, createdAt: existingTask?.createdAt || new Date().toISOString() };
+      sg.tasks = reindexTasks(tid ? sg.tasks.map(item => item.id === tid ? task : item) : [...sg.tasks, task]);
       await save('groups', g);
       say('Zapisano zadanie');
     } else {
@@ -1188,7 +1394,7 @@ async function boot() {
       }
       if (!sg) return;
 
-      sg.tasks.push({ id: uid(), name, url: urlVal, startDate: startVal, endDate: endVal });
+      sg.tasks = reindexTasks([...sg.tasks, { id: uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: sg.tasks.length, createdAt: new Date().toISOString() }]);
       await save('groups', g);
       say('Zduplikowano zadanie');
     } else {
@@ -1219,7 +1425,7 @@ async function boot() {
       if (!tid) return;
       const g = normalized(await getOne('groups', gid)), sg = g?.subgroups.find(s => s.id === sid);
       if (!sg) return;
-      sg.tasks = sg.tasks.filter(t => t.id !== tid);
+      sg.tasks = reindexTasks(sg.tasks.filter(t => t.id !== tid));
       await save('groups', g);
       say('Usunięto zadanie');
     } else {
@@ -1236,6 +1442,7 @@ async function boot() {
   await renderAll();
 }
 window.addEventListener('load', boot, { once: true });
+
 </script>
 </body>
 </html>
