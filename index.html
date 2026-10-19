@@ -8,6 +8,7 @@
 body{font-family:ui-rounded,"Avenir Next","Segoe UI",sans-serif}.view[hidden]{display:none}.active{color:#0f766e}.active svg{stroke-width:3}.nav.active{background:#ccfbf1;color:#0f766e}.nav:not(.active){color:#94a3b8}.nav.active::after{display:none !important}dialog::backdrop{background:#0f172a88}input[type=checkbox]{accent-color:#0f766e}dialog input:not([type=checkbox]):not([type=hidden]):not([type=file]),dialog select,#settings-view input:not([type=checkbox]):not([type=hidden]):not([type=file]){border:2px solid #cbd5e1;border-radius:.5rem;background:#f8fafc;padding:.625rem .875rem;font-size:.875rem;font-weight:500;color:#0f172a;outline:none}dialog select{background:#fff;cursor:pointer}dialog input:not([type=checkbox]):not([type=hidden]):not([type=file]):focus,dialog select:focus,#settings-view input:not([type=checkbox]):not([type=hidden]):not([type=file]):focus{border-color:#0d9488;box-shadow:0 0 0 2px rgb(20 184 166 / .2)}#group-color{border:2px solid #cbd5e1;border-radius:.5rem;padding:.25rem;height:2.75rem;background:#fff;cursor:pointer}.event-panel{border-color:#99f6e4;background:#f0fdfa}.event-panel-title{color:#115e59}.filter-pill{border:1px solid #ccfbf1;border-radius:9999px}.filter-pill-active{border-color:#0f766e;background:#0f766e;color:#fff}.segment-control{border:1px solid #99f6e4;background:#f0fdfa;border-radius:10px;padding:3px}.segment-control button{border-radius:7px;flex:1}.schedule-sticky{position:static}.schedule-sticky>.segment-control{position:sticky;top:0;z-index:30;background:#ffffffF2;backdrop-filter:blur(8px);padding-top:.5rem;padding-bottom:.5rem;border-bottom:1px solid #f1f5f9;box-shadow:0 1px 3px rgb(15 23 42 / .08)}.task-item,.task-title,.task-path-text{white-space:normal !important;word-break:break-word !important;overflow-wrap:break-word !important}#edit-toolbar{position:sticky !important;top:0 !important;z-index:30 !important;width:100% !important;background:#ffffffF2 !important;backdrop-filter:blur(4px);padding-top:.625rem !important;padding-bottom:.625rem !important;border-bottom:1px solid #f1f5f9 !important;box-shadow:0 1px 3px rgb(15 23 42 / .08)}.month-header-count,.month-badge,[data-count],[data-count-label]{text-transform:none !important}
 details summary::-webkit-details-marker{display:none}details summary{list-style:none}
 .group-today-acc[open] .details-arrow{transform:rotate(90deg)}
+.subgroup-acc[open] .subgroup-chevron{transform:rotate(90deg)}
 </style>
 </head>
 <body class="min-h-screen bg-slate-50 text-slate-800">
@@ -29,8 +30,8 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
   </button>
 
   <div id="holiday-note" hidden class="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sky-950"><b>Dzisiaj masz urlop!</b><p class="mt-1 text-sm">Zadania są zamrożone, a sekwencje nie przesuwają się.</p></div>
-  <details id="today-events-critical" hidden class="mb-4 overflow-hidden rounded-lg border border-purple-500 bg-purple-50"><summary id="today-events-critical-summary" class="cursor-pointer px-4 py-2.5 font-extrabold text-sm flex items-center justify-between text-purple-950"></summary><div id="today-events-critical-list" class="space-y-2 border-t border-purple-200 p-3"></div></details>
-  <details id="backlog-panel" hidden class="mb-4 overflow-hidden rounded-lg border border-amber-200 bg-amber-50"><summary id="backlog-summary" class="cursor-pointer px-4 py-2.5 font-extrabold text-sm flex items-center justify-between text-amber-950"></summary><div id="backlog-list" class="space-y-2 border-t border-amber-200 p-3"></div></details>
+  <details id="today-events-critical" hidden data-accordion-id="today-critical-events" data-accordion-default="open" class="mb-4 overflow-hidden rounded-lg border border-purple-500 bg-purple-50"><summary id="today-events-critical-summary" class="cursor-pointer px-4 py-2.5 font-extrabold text-sm flex items-center justify-between text-purple-950"></summary><div id="today-events-critical-list" class="space-y-2 border-t border-purple-200 p-3"></div></details>
+  <details id="backlog-panel" hidden data-accordion-id="today-backlog" data-accordion-default="open" class="mb-4 overflow-hidden rounded-lg border border-amber-200 bg-amber-50"><summary id="backlog-summary" class="cursor-pointer px-4 py-2.5 font-extrabold text-sm flex items-center justify-between text-amber-950"></summary><div id="backlog-list" class="space-y-2 border-t border-amber-200 p-3"></div></details>
   <div id="summary" class="mb-4 flex items-center justify-between rounded-lg bg-slate-900 px-4 py-2.5 text-white"></div>
   <div id="today-list" class="space-y-3"></div>
   <div id="empty-today" hidden class="py-14 text-center text-slate-500">Brak zadań. Dodaj grupę i kroki w Konfiguracji.</div>
@@ -46,23 +47,18 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
       <button data-schedule-mode="tasks" class="schedule-mode bg-teal-700 px-3 py-2.5 text-sm font-bold text-white">📋 Zadania</button>
       <button data-schedule-mode="events" class="schedule-mode px-3 py-2.5 text-sm font-bold text-teal-900">📅 Wydarzenia</button>
     </div>
-    <div id="schedule-tasks-pane">
-      <div class="mb-4 flex flex-wrap gap-2">
-        <button data-filter="all" class="filter filter-pill filter-pill-active px-3 py-1.5 text-sm font-bold">Wszystkie</button>
-        <button data-filter="future" class="filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Nadchodzące</button>
-        <button data-filter="overdue" class="filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Zaległe</button>
-        <button id="collapse" class="ml-auto rounded-md bg-teal-100 px-3 py-1.5 text-sm font-bold text-teal-800">Rozwiń</button>
+    <div class="mb-4 flex items-center gap-2">
+      <div class="relative">
+        <button id="sched-filter-btn" type="button" class="flex items-center gap-1.5 rounded-full border border-teal-200 bg-white px-3.5 py-1.5 text-sm font-bold text-teal-900 shadow-sm"><i data-lucide="sliders-horizontal" class="h-4 w-4"></i>Filtry<span id="sched-filter-label" class="text-xs font-semibold text-teal-700"></span></button>
+        <div id="sched-filter-menu" hidden class="absolute left-0 top-full z-40 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"></div>
       </div>
+      <button id="collapse" class="ml-auto rounded-md bg-teal-100 px-3 py-1.5 text-sm font-bold text-teal-800">Rozwiń</button>
+    </div>
+    <div id="schedule-tasks-pane">
       <p id="range-info" class="mb-4 text-sm text-slate-500"></p>
       <div id="schedule-list" class="space-y-3"></div>
     </div>
     <div id="schedule-events-pane" hidden>
-      <div class="mb-4 flex flex-wrap gap-2">
-        <button data-event-filter="all" class="sched-event-filter filter-pill filter-pill-active px-3 py-1.5 text-sm font-bold">Wszystkie</button>
-        <button data-event-filter="upcoming" class="sched-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Nadchodzące</button>
-        <button data-event-filter="history" class="sched-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Historia</button>
-        <button data-event-filter="important" class="sched-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Pilne</button>
-      </div>
       <div id="schedule-events-list" class="space-y-3"></div>
     </div>
   </div>
@@ -90,8 +86,8 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
     <div class="mb-3 flex flex-wrap gap-2">
       <button data-event-filter="all" class="mgmt-event-filter filter-pill filter-pill-active px-3 py-1.5 text-sm font-bold">Wszystkie</button>
       <button data-event-filter="upcoming" class="mgmt-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Nadchodzące</button>
-      <button data-event-filter="done" class="mgmt-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Zrobione</button>
-      <button data-event-filter="overdue" class="mgmt-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Zaległe</button>
+      <button data-event-filter="past" class="mgmt-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Minione/Zrobione</button>
+      <button data-event-filter="urgent" class="mgmt-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900">Pilne</button>
     </div>
     <div id="events-list" class="space-y-2"></div>
   </section>
@@ -269,6 +265,37 @@ const remove = async (name, key) => {
   const result = await req(name, 'delete', key, 'readwrite'), records = AppCache[name];
   if (records) { const field = name === 'settings' ? 'key' : 'id'; AppCache[name] = records.filter(record => record[field] !== key); }
   return result;
+};
+
+// Trwały stan rozwinięcia sekcji <details> (localStorage, bez zmian schematu IndexedDB)
+const ACCORDION_KEY = 'rotask_accordion_state';
+const accordionState = (() => { try { return JSON.parse(localStorage.getItem(ACCORDION_KEY)) || {}; } catch { return {}; } })();
+const saveAccordionState = () => localStorage.setItem(ACCORDION_KEY, JSON.stringify(accordionState));
+const persistAccordion = (id, open) => { accordionState[id] = open; saveAccordionState(); };
+const clearAccordionKeys = prefix => { Object.keys(accordionState).filter(key => key.startsWith(prefix)).forEach(key => delete accordionState[key]); saveAccordionState(); };
+const accordionOpen = el => el.dataset.accordionId in accordionState ? accordionState[el.dataset.accordionId] : el.dataset.accordionDefault === 'open';
+const restoreAccordions = root => root.querySelectorAll('[data-accordion-id]').forEach(el => { const open = accordionOpen(el); if (el.open !== open) el.open = open; });
+document.addEventListener('toggle', e => { const id = e.target.dataset?.accordionId; if (id) persistAccordion(id, e.target.open); }, true);
+// Stan podgrup w Edycji: domyślnie otwarte, klucz subgroup_open_<id> w localStorage
+const isSubgroupOpen = id => localStorage.getItem(`subgroup_open_${id}`) !== 'false';
+document.addEventListener('toggle', e => { if (e.target.classList?.contains('subgroup-acc')) localStorage.setItem(`subgroup_open_${e.target.dataset.subgroupId}`, String(e.target.open)); }, true);
+
+// Podświetlenie edytowanego wpisu po zapisie w #unified-modal
+let savedEntryRef = null;
+const HIGHLIGHT_CLASSES = ['ring-2', 'ring-teal-500', 'transition', 'duration-500'];
+const highlightSavedEntry = () => {
+  if (!savedEntryRef) return;
+  const { type, id } = savedEntryRef;
+  savedEntryRef = null;
+  const scope = document.querySelector('.view:not([hidden])') || document;
+  const selector = type === 'task'
+    ? `[data-task-edit$="|${id}"], [data-v2-task-edit$="|${id}"], [data-v2-today$="|${id}"], [data-v2-backlog$="|${id}"]`
+    : `[data-event-edit="${id}"], [data-occ^="${id}|"], [data-event-complete^="${id}|"]`;
+  const target = scope.querySelector(selector)?.closest('article, label, li');
+  if (!target) return;
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  target.classList.add(...HIGHLIGHT_CLASSES);
+  setTimeout(() => target.classList.remove(...HIGHLIGHT_CLASSES), 1500);
 };
 
 async function exportBackup() {
@@ -572,7 +599,7 @@ async function renderTodayV2() {
   const backlogPanel = $('#backlog-panel');
   if (backlogPanel) {
     backlogPanel.hidden = isGrouped || !overdue.length;
-    backlogPanel.open = overdue.length > 0 && localStorage.getItem('rotask_overdue_tasks_open') !== 'false';
+    if (overdue.length) backlogPanel.open = accordionOpen(backlogPanel);
   }
   const backlogSummaryEl = $('#backlog-summary'); if (backlogSummaryEl) backlogSummaryEl.textContent = `⚠️ Zaległe zadania (${overdue.length})`;
 
@@ -633,7 +660,7 @@ async function renderTodayV2() {
     items.forEach(item => add(item.group.id, () => renderTodayCard(item)));
     return groups.filter(group => entries.has(group.id)).map(group => {
       const renders = entries.get(group.id), hiddenCount = renders.length - GROUP_TODAY_LIMIT;
-      return `<details class="group-today-acc border rounded-xl overflow-hidden mb-3 bg-white border-slate-200 shadow-sm" open>
+      return `<details data-accordion-id="today-group-${html(group.id)}" data-accordion-default="open" class="group-today-acc border rounded-xl overflow-hidden mb-3 bg-white border-slate-200 shadow-sm">
         <summary class="flex items-center justify-between p-3 bg-slate-50 cursor-pointer select-none">
           <div class="flex items-center gap-2 min-w-0">
             <i data-lucide="chevron-right" class="h-4 w-4 text-slate-400 transition-transform details-arrow"></i>
@@ -657,7 +684,10 @@ async function renderTodayV2() {
   };
 
   const todayListEl = $('#today-list');
-  if (todayListEl) todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : items.map(renderTodayCard).join('');
+  if (todayListEl) {
+    todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : items.map(renderTodayCard).join('');
+    restoreAccordions(todayListEl);
+  }
 
   $$('[data-v2-today]').forEach(input => input.onchange = async () => {
     const [groupId, taskId] = input.dataset.v2Today.split('|');
@@ -712,9 +742,11 @@ async function renderScheduleV2() {
     if (!holidaySet.has(c)) workdayMap.set(c, workCount++);
   }
 
-  const currentDate = today();
-  if (scheduleFilter === 'future') dates = dates.filter(d => d >= currentDate);
-  if (scheduleFilter === 'overdue') dates = dates.filter(d => d < currentDate && fastNestedPlan(d, groups, holidaySet, workdayMap, config).some(i => !isTaskCompleted(compMap, d, i.group.id, i.task.id)));
+  const currentDate = today(), taskFilter = scheduleFilter.startsWith('urgent') ? 'all' : scheduleFilter;
+  const doneDates = new Set((completions || []).filter(c => c.done).map(c => c.date));
+  if (taskFilter === 'future') dates = dates.filter(d => d >= currentDate);
+  if (taskFilter === 'overdue') dates = dates.filter(d => d < currentDate && fastNestedPlan(d, groups, holidaySet, workdayMap, config).some(i => !isTaskCompleted(compMap, d, i.group.id, i.task.id)));
+  if (taskFilter === 'done') dates = dates.filter(d => doneDates.has(d));
 
   const rangeInfoEl = $('#range-info'); if (rangeInfoEl) rangeInfoEl.textContent = `${dates.length} dni: ${config.start} - ${config.end}`;
   const list = $('#schedule-list');
@@ -728,21 +760,22 @@ async function renderScheduleV2() {
   for (const [monthKey, monthDates] of [...monthGroups.entries()].sort()) {
     const monthLabel = new Date(`${monthKey}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
 
+    const monthAccKey = `sched-month-${monthKey}`, monthOpen = monthAccKey in accordionState ? accordionState[monthAccKey] : isScheduleAllExpanded;
     const wrapper = document.createElement('div');
     wrapper.className = 'mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm';
 
     const header = document.createElement('button');
     header.type = 'button';
     header.className = 'flex w-full items-center justify-between bg-slate-800 px-4 py-3 text-left text-sm font-extrabold text-white cursor-pointer';
-    header.innerHTML = `<span>📅 ${monthLabel}</span><span class="flex items-center gap-2"><span class="month-header-count text-xs font-normal opacity-90"></span><span class="toggle-indicator text-slate-300 transition-transform">${isScheduleAllExpanded ? '▾' : '▸'}</span></span>`;
+    header.innerHTML = `<span>📅 ${monthLabel}</span><span class="flex items-center gap-2"><span class="month-header-count text-xs font-normal opacity-90"></span><span class="toggle-indicator text-slate-300 transition-transform">${monthOpen ? '▾' : '▸'}</span></span>`;
 
     const content = document.createElement('div');
-    content.className = `month-content flex flex-col gap-2.5 p-2 ${isScheduleAllExpanded ? '' : 'hidden'}`;
+    content.className = `month-content flex flex-col gap-2.5 p-2 ${monthOpen ? '' : 'hidden'}`;
 
     const renderMonthContent = () => {
       let totalTasks = 0;
       content.innerHTML = monthDates.map(date => {
-        const free = holidaySet.has(date), items = fastNestedPlan(date, groups, holidaySet, workdayMap, config);
+        const free = holidaySet.has(date), items = fastNestedPlan(date, groups, holidaySet, workdayMap, config).filter(i => taskFilter !== 'done' || isTaskCompleted(compMap, date, i.group.id, i.task.id));
         totalTasks += items.length;
         const count = items.filter(i => isTaskCompleted(compMap, date, i.group.id, i.task.id)).length;
         const tasks = items.map(i => {
@@ -780,12 +813,13 @@ async function renderScheduleV2() {
       });
     };
 
-    if (isScheduleAllExpanded) renderMonthContent();
+    if (monthOpen) renderMonthContent();
 
     header.onclick = () => {
       if (content.innerHTML === '') renderMonthContent();
       content.classList.toggle('hidden');
       header.querySelector('.toggle-indicator').textContent = content.classList.contains('hidden') ? '▸' : '▾';
+      persistAccordion(monthAccKey, !content.classList.contains('hidden'));
     };
 
     wrapper.append(header, content);
@@ -798,7 +832,7 @@ async function renderGroupsV2() {
   const emptyGroupsEl = $('#empty-groups'); if (emptyGroupsEl) emptyGroupsEl.hidden = !!groups.length;
   const groupsListEl = $('#groups-list');
   if (!groupsListEl) return;
-  groupsListEl.innerHTML = groups.map(g => `<details class="group-accordion rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" open style="border-color:${g.color}55">
+  groupsListEl.innerHTML = groups.map(g => `<details data-accordion-id="edit-group-${g.id}" data-accordion-default="open" class="group-accordion rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" style="border-color:${g.color}55">
     <summary class="flex cursor-pointer items-center justify-between p-3.5 select-none transition hover:bg-slate-50" style="background:${g.color}15">
       <div class="flex items-center gap-2.5 min-w-0">
         <span class="group-chevron text-xs text-slate-500 transition-transform">▾</span>
@@ -812,24 +846,28 @@ async function renderGroupsV2() {
       </div>
     </summary>
     <div class="p-3.5 pt-1 space-y-3 bg-white">
-      ${g.subgroups.map((sg, i) => `<section class="rounded-lg border p-3" style="background:${g.color}08; border-color:${g.color}30">
-        <div class="flex items-center justify-between gap-2 border-b pb-2" style="border-color:${g.color}30">
-          <span class="text-xs font-bold text-slate-800">${i + 1}. ${html(sg.name)}</span>
-          <div class="flex items-center gap-1">
+      ${g.subgroups.map((sg, i) => `<details class="subgroup-acc rounded-lg border" data-subgroup-id="${sg.id}" ${isSubgroupOpen(sg.id) ? 'open' : ''} style="background:${g.color}08; border-color:${g.color}30">
+        <summary class="flex cursor-pointer select-none items-center justify-between gap-2 p-3">
+          <span class="flex min-w-0 items-center gap-1.5 text-xs font-bold text-slate-800"><span class="subgroup-chevron inline-block text-slate-500 transition-transform">▸</span>${i + 1}. ${html(sg.name)}</span>
+          <div class="flex shrink-0 items-center gap-1">
+            <button data-v2-task-add="${g.id}|${sg.id}" title="Dodaj zadanie" class="p-1 text-teal-800 hover:bg-teal-100/80 rounded transition"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-edit="${g.id}|${sg.id}" title="Edytuj podgrupę" class="p-1 text-teal-700 hover:bg-teal-100/60 rounded transition"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-delete="${g.id}|${sg.id}" title="Usuń podgrupę" class="p-1 text-rose-600 hover:bg-rose-100/60 rounded transition"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
           </div>
-        </div>
+        </summary>
+        <div class="border-t px-3 pb-3" style="border-color:${g.color}30">
         <ul class="mt-2 space-y-1.5">${orderedTasks(sg.tasks).map((t, ti) => `<li class="flex items-center gap-2 rounded-md border-l-4 bg-white px-3 py-2 shadow-xs border border-slate-100" style="border-left-color:${g.color}"><span class="text-[11px] font-bold text-slate-400">${ti + 1}</span><b class="min-w-0 flex-1 truncate text-xs text-slate-800">${html(t.name)}</b><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|-1" title="Przenieś w górę" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-up" class="h-3.5 w-3.5"></i></button><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|1" title="Przenieś w dół" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button><button data-v2-task-edit="${g.id}|${sg.id}|${t.id}" title="Edytuj zadanie" class="p-1 text-teal-700 hover:bg-teal-50 rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button><button data-v2-task-delete="${g.id}|${sg.id}|${t.id}" title="Usuń zadanie" class="p-1 text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></li>`).join('') || '<li class="py-1 text-xs text-slate-400">Brak dodatkowych zadań</li>'}</ul>
-        <button data-v2-task-add="${g.id}|${sg.id}" class="mt-2.5 w-full rounded-md py-1.5 text-xs font-bold text-teal-800 transition hover:bg-teal-100/80" style="background:${g.color}18">+ Dodaj zadanie</button>
-      </section>`).join('')}
+        </div>
+      </details>`).join('')}
       <button data-v2-subgroup-add="${g.id}" class="w-full rounded-lg py-2 text-xs font-bold text-teal-900 transition hover:bg-teal-100" style="background:${g.color}22">+ Dodaj podgrupę</button>
     </div>
   </details>`).join('');
 
+  restoreAccordions(groupsListEl);
   $$('.group-accordion').forEach(acc => {
+    const ch = acc.querySelector('.group-chevron');
+    if (ch) ch.textContent = acc.open ? '▾' : '▸';
     acc.addEventListener('toggle', () => {
-      const ch = acc.querySelector('.group-chevron');
       if (ch) ch.textContent = acc.open ? '▾' : '▸';
     });
   });
@@ -838,9 +876,15 @@ async function renderGroupsV2() {
     event.stopPropagation();
     groupModal(button.dataset.v2GroupEdit);
   });
+  $('#groups-list').querySelectorAll('[data-v2-group-delete]').forEach(button => button.onclick = async event => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (confirm('Usunąć grupę wraz z podgrupami?')) { await remove('groups', button.dataset.v2GroupDelete); renderAll(); }
+  });
 
   $('#groups-list').onclick = async e => {
     const btn = e.target.closest('button'); if (!btn) return;
+    if (btn.closest('summary')) { e.preventDefault(); e.stopPropagation(); }
     const act = Object.keys(btn.dataset).find(k => k.startsWith('v2')); if (!act) return;
     const vals = btn.dataset[act].split('|');
     if (act === 'v2GroupEdit') {
@@ -848,7 +892,6 @@ async function renderGroupsV2() {
       e.stopPropagation();
       return groupModal(vals[0]);
     }
-    if (act === 'v2GroupDelete' && confirm('Usunąć grupę wraz z podgrupami?')) { await remove('groups', vals[0]); renderAll(); }
     if (act === 'v2SubgroupAdd') return subgroupModal(vals[0]);
     if (act === 'v2SubgroupEdit') return subgroupModal(vals[0], vals[1]);
     if (act === 'v2SubgroupDelete' && confirm('Usunąć podgrupę?')) { const g = normalized(await getOne('groups', vals[0])); g.subgroups = g.subgroups.filter(s => s.id !== vals[1]); await save('groups', g); renderAll(); }
@@ -864,19 +907,21 @@ async function renderEventsList() {
   const events = await all('events'), now = today();
   const list = $('#events-list');
   if (!list) return;
+  $$('.mgmt-event-filter').forEach(b => b.className = `mgmt-event-filter filter-pill px-3 py-1.5 text-sm font-bold ${b.dataset.eventFilter === mgmtEventFilter ? 'filter-pill-active' : 'bg-white text-teal-900'}`);
   const filtered = (events || []).filter(ev => {
     const done = (ev.completedDates || []).length > 0;
-    if (mgmtEventFilter === 'upcoming') return ev.baseDate >= now;
-    if (mgmtEventFilter === 'done') return done;
-    if (mgmtEventFilter === 'overdue') return ev.baseDate < now && !done;
+    if (mgmtEventFilter === 'upcoming') return ev.baseDate >= now && !done;
+    if (mgmtEventFilter === 'past') return done || ev.baseDate < now;
+    if (mgmtEventFilter === 'urgent') return !!ev.important;
     return true;
   });
 
   list.innerHTML = filtered.map(ev => {
     const cycle = window.getScheduleSubtitle(ev.baseDate, ev);
-    return `<article class="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+    const doneUrgent = ev.important && (ev.completedDates || []).length > 0;
+    return `<article class="flex items-center justify-between rounded-lg border ${doneUrgent ? 'border-rose-200 bg-rose-50/50' : 'border-slate-200 bg-white'} p-3 shadow-sm">
       <div class="min-w-0 flex-1">
-        <h3 class="font-extrabold text-sm ${ev.important ? 'text-rose-600' : 'text-slate-900'}">${html(ev.name)}</h3>
+        <h3 class="font-extrabold text-sm ${doneUrgent ? 'text-rose-400 line-through' : ev.important ? 'text-rose-600' : 'text-slate-900'}">${html(ev.name)}</h3>
         <p class="mt-0.5 text-xs text-slate-500">${cycle}</p>
       </div>
       <div class="flex gap-1">
@@ -906,13 +951,20 @@ async function renderScheduleEvents() {
   const repeatLabel = event => event.repeat === 'repeat' ? `co ${event.interval} ${{ days: 'dni', weeks: 'tygodnie', months: 'miesiące', years: 'lata' }[event.unit] || event.unit}` : 'jednorazowe';
   const eventCard = ({ event, date, done }) => {
     const title = event.url ? `<a href="${html(event.url)}" target="_blank" rel="noopener" class="underline">${html(event.name)}</a>` : html(event.name);
-    const titleClass = done ? 'text-slate-400 line-through' : event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900';
-    return `<article class="overflow-hidden rounded-lg border-l-4 ${done ? 'border-slate-400 bg-slate-100 opacity-75' : 'border-teal-600 bg-white shadow-sm'}"><div class="flex items-start gap-3 px-3 py-3"><input data-occ="${event.id}|${date}" type="checkbox" class="mt-1 h-5 w-5" ${done ? 'checked' : ''}><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-x-2 gap-y-1"><div class="${titleClass}">${title}</div><span class="rounded-full px-2 py-0.5 text-xs font-bold ${done ? 'bg-emerald-100 text-emerald-800' : 'bg-teal-100 text-teal-800'}">${done ? 'Zrealizowane' : 'Aktywne'}</span></div><p class="mt-1 text-xs font-bold text-slate-500">${date} · ${relativeLabel(date)} · ${repeatLabel(event)}</p></div><button data-event-edit="${event.id}" class="rounded-md p-2 text-teal-700 hover:bg-teal-100" title="Edytuj"><i data-lucide="pencil"></i></button></div></article>`;
+    const doneUrgent = done && !!event.important;
+    const titleClass = doneUrgent ? 'text-rose-500 line-through' : done ? 'text-slate-400 line-through' : event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900';
+    return `<article class="overflow-hidden rounded-lg border-l-4 ${doneUrgent ? 'border-rose-300 bg-rose-50/50 opacity-90' : done ? 'border-slate-400 bg-slate-100 opacity-75' : 'border-teal-600 bg-white shadow-sm'}"><div class="flex items-start gap-3 px-3 py-3"><input data-occ="${event.id}|${date}" type="checkbox" class="mt-1 h-5 w-5" ${done ? 'checked' : ''}><div class="min-w-0 flex-1"><div class="flex flex-wrap items-center gap-x-2 gap-y-1"><div class="${titleClass}">${title}</div><span class="rounded-full px-2 py-0.5 text-xs font-bold ${doneUrgent ? 'bg-rose-700/70 text-white' : done ? 'bg-emerald-100 text-emerald-800' : 'bg-teal-100 text-teal-800'}">${done ? 'Zrealizowane' : 'Aktywne'}</span></div><p class="mt-1 text-xs font-bold text-slate-500">${date} · ${relativeLabel(date)} · ${repeatLabel(event)}</p></div><button data-event-edit="${event.id}" class="rounded-md p-2 text-teal-700 hover:bg-teal-100" title="Edytuj"><i data-lucide="pencil"></i></button></div></article>`;
   };
   let dates = [];
   for (let c = cfg.start; c <= scheduleEnd; c = addDays(c, 1)) dates.push(c);
-  if (scheduleEventFilter === 'upcoming') dates = dates.filter(d => d >= now);
-  if (scheduleEventFilter === 'history') dates = dates.filter(d => d < now);
+  // ten sam filtr co w zadaniach (scheduleFilter); pilne wymagają flagi important
+  const keepOccurrence = (important, done, date) => {
+    if (scheduleFilter.startsWith('urgent')) return important;
+    if (scheduleFilter === 'done') return done;
+    if (scheduleFilter === 'overdue') return !done && date < now;
+    if (scheduleFilter === 'future') return date >= now;
+    return true;
+  };
 
   const occurrences = new Map();
   for (const ev of (events || [])) {
@@ -923,7 +975,7 @@ async function renderScheduleEvents() {
       if (cur >= cfg.start) {
         if (!occurrences.has(cur)) occurrences.set(cur, []);
         const done = (ev.completedDates || []).includes(cur);
-        if (scheduleEventFilter !== 'important' || ev.important) occurrences.get(cur).push({ event: ev, date: cur, done });
+        if (keepOccurrence(!!ev.important, done, cur)) occurrences.get(cur).push({ event: ev, date: cur, done });
       }
       if (isMultiDayOnce || ev.repeat === 'repeat') cur = nextEventDate(ev, cur, isMultiDayOnce);
       else break;
@@ -932,6 +984,17 @@ async function renderScheduleEvents() {
   }
 
   const list = $('#schedule-events-list');
+  const occupied = [...occurrences.entries()].filter(([, items]) => items.length).map(([d]) => d).sort();
+  const occupiedSet = new Set(occupied);
+  if (scheduleFilter === 'future') dates = dates.filter(d => d >= now);
+  if (scheduleFilter === 'done' || scheduleFilter === 'overdue') dates = dates.filter(d => occupiedSet.has(d));
+  if (scheduleFilter === 'urgent-calendar') dates = occupied.length ? dates.filter(d => d >= occupied[0] && d <= occupied[occupied.length - 1]) : [];
+
+  if (scheduleFilter === 'urgent-list') {
+    dates = occupied;
+    if (!occupied.length) { list.innerHTML = '<p class="py-6 text-center text-sm text-slate-500">Brak pilnych wpisów.</p>'; return; }
+  }
+
   const monthGroups = new Map();
   dates.forEach(d => { const m = d.slice(0, 7); if (!monthGroups.has(m)) monthGroups.set(m, []); monthGroups.get(m).push(d); });
 
@@ -950,7 +1013,7 @@ async function renderScheduleEvents() {
   list.innerHTML = [...monthGroups.entries()].sort().map(([mKey, mDates]) => {
     const mLabel = new Date(`${mKey}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
     const evCount = mDates.reduce((tot, d) => tot + (occurrences.get(d) || []).length, 0);
-    return `<details data-event-month="${mKey}" class="mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
+    return `<details data-event-month="${mKey}" data-accordion-id="sched-event-m-${mKey}" class="month-acc mb-3 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
       <summary class="flex cursor-pointer items-center justify-between bg-slate-800 px-4 py-3 text-left text-sm font-extrabold text-white">
         <span>📅 ${mLabel}</span><span class="text-xs">${evCount} wydarzeń</span>
       </summary>
@@ -966,27 +1029,7 @@ async function renderScheduleEvents() {
     month.dataset.rendered = 'true';
     if (window.lucide) lucide.createIcons({ root: content });
   }));
-  list.onchange = async ev => {
-    const input = ev.target.closest('[data-occ]');
-    if (!input) return;
-    const [eventId, date] = input.dataset.occ.split('|');
-    const event = await getOne('events', eventId);
-    if (!event) return;
-    const completedDates = new Set(event.completedDates || []), completedAt = { ...(event.completedAt || {}) };
-    if (input.checked) { completedDates.add(date); completedAt[date] = today(); } else { completedDates.delete(date); delete completedAt[date]; }
-    event.completedDates = [...completedDates];
-    event.completedAt = completedAt;
-    await save('events', event);
-    renderScheduleEvents();
-    renderReminders();
-  };
-  list.onclick = event => {
-    const button = event.target.closest('[data-event-edit]');
-    if (!button) return;
-    event.preventDefault();
-    event.stopPropagation();
-    openUnifiedModal('event', { eventId: button.dataset.eventEdit });
-  };
+  restoreAccordions(list);
 }
 
 async function renderReminders() {
@@ -1011,7 +1054,7 @@ async function renderReminders() {
   const eventsPanel = $('#today-events-critical');
   if (eventsPanel) {
     eventsPanel.hidden = !overdue.length;
-    eventsPanel.open = overdue.length > 0 && localStorage.getItem('rotask_overdue_events_open') !== 'false';
+    if (overdue.length) eventsPanel.open = accordionOpen(eventsPanel);
   }
   const criticalSummaryEl = $('#today-events-critical-summary'); if (criticalSummaryEl) criticalSummaryEl.textContent = `⚠️ Zaległe wydarzenia (${overdue.length})`;
 
@@ -1021,9 +1064,10 @@ async function renderReminders() {
     const daysLate = Math.abs(diff);
     const lateBadge = daysLate === 1 ? '1 dzień po' : `${daysLate} dni po`;
     const cycle = window.getScheduleSubtitle(item.date, item.event);
-    const titleColor = item.done ? 'text-slate-400 line-through' : (item.event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900 font-extrabold');
+    const doneUrgent = item.done && item.event.important;
+    const titleColor = doneUrgent ? 'text-rose-400 line-through' : item.done ? 'text-slate-400 line-through' : (item.event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900 font-extrabold');
     const nameEl = item.event.url ? `<a href="${html(item.event.url)}" target="_blank" rel="noopener" class="underline ${titleColor}">${html(item.event.name)}</a>` : `<span class="${titleColor}">${html(item.event.name)}</span>`;
-    return `<label class="flex items-start gap-3 rounded-lg border border-purple-200 bg-white px-3 py-2.5 text-sm shadow-sm ${item.done ? 'opacity-60 bg-slate-50' : ''}">
+    return `<label class="flex items-start gap-3 rounded-lg border border-purple-200 bg-white px-3 py-2.5 text-sm shadow-sm ${doneUrgent ? 'bg-rose-50/50 opacity-90' : item.done ? 'opacity-60 bg-slate-50' : ''}">
       <input data-event-complete="${item.event.id}|${item.date}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${item.done ? 'checked' : ''}>
       <div class="min-w-0 flex-1">
         <div class="flex items-start justify-between gap-2">
@@ -1032,7 +1076,7 @@ async function renderReminders() {
         </div>
         <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
           <span class="text-xs font-medium ${item.done ? 'text-slate-400' : 'text-purple-700/80'}">${cycle}</span>
-          <span class="status-badge shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-extrabold text-white ${item.done ? 'bg-emerald-600' : 'bg-purple-700'}" data-original-text="${lateBadge}">${item.done ? 'ZROBIONE' : lateBadge}</span>
+          <span class="status-badge shrink-0 whitespace-nowrap rounded px-2 py-0.5 text-[10px] font-extrabold text-white ${doneUrgent ? 'bg-rose-700/70' : item.done ? 'bg-emerald-600' : 'bg-purple-700'}" data-original-text="${lateBadge}">${item.done ? 'ZROBIONE' : lateBadge}</span>
         </div>
       </div>
     </label>`;
@@ -1042,11 +1086,12 @@ async function renderReminders() {
   const upcomingSummaryEl = $('#upcoming-events-summary'); if (upcomingSummaryEl) upcomingSummaryEl.textContent = `${windowRows.filter(i => i.done).length} z ${windowRows.length} wykonane`;
   const upcomingListEl = $('#upcoming-events-list');
   if (upcomingListEl) upcomingListEl.innerHTML = windowRows.map(item => {
-    const badgeInfo = item.done ? { text: 'ZROBIONE', className: 'bg-emerald-600 text-white' } : getEventBadgeInfo(item.date, now);
+    const doneUrgent = item.done && item.event.important;
+    const badgeInfo = item.done ? { text: 'ZROBIONE', className: doneUrgent ? 'bg-rose-700/70 text-white' : 'bg-emerald-600 text-white' } : getEventBadgeInfo(item.date, now);
     const cycle = window.getScheduleSubtitle(item.date, item.event);
-    const titleColor = item.done ? 'text-slate-400 line-through' : (item.event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900 font-extrabold');
+    const titleColor = doneUrgent ? 'text-rose-400 line-through' : item.done ? 'text-slate-400 line-through' : (item.event.important ? 'text-rose-600 font-extrabold' : 'text-slate-900 font-extrabold');
     const nameEl = item.event.url ? `<a href="${html(item.event.url)}" target="_blank" rel="noopener" class="underline ${titleColor}">${html(item.event.name)}</a>` : `<span class="${titleColor}">${html(item.event.name)}</span>`;
-    return `<label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm ${item.done ? 'opacity-60 bg-slate-50' : ''}">
+    return `<label class="flex items-start gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 text-sm shadow-sm ${doneUrgent ? 'bg-rose-50/50 opacity-90 border-rose-200' : item.done ? 'opacity-60 bg-slate-50' : ''}">
       <input data-event-complete="${item.event.id}|${item.date}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${item.done ? 'checked' : ''}>
       <div class="min-w-0 flex-1">
         <div class="flex items-start justify-between gap-2">
@@ -1097,7 +1142,21 @@ async function renderAll() { await Promise.all([renderTodayV2(), renderScheduleV
 
 // app.js — punkt wejścia, stan zakładek, obsługa modali i formularzy
 
-let scheduleMode = 'tasks', scheduleFilter = 'all', scheduleEventFilter = 'all', mgmtEventFilter = 'all', isScheduleAllExpanded = false;
+// Trwałe filtry widoków w localStorage (schemat IndexedDB bez zmian)
+const readStored = (key, allowed, fallback) => { try { const value = localStorage.getItem(key); return allowed.includes(value) ? value : fallback; } catch { return fallback; } };
+const writeStored = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
+const SCHEDULE_FILTER_KEY = 'rotask_schedule_filter', EVENT_FILTER_KEY = 'rotask_events_filter';
+const SCHEDULE_FILTERS = [
+  { value: 'all', label: 'Wszystkie' },
+  { value: 'future', label: 'Nadchodzące' },
+  { value: 'done', label: 'Zrobione' },
+  { value: 'overdue', label: 'Zaległe' },
+  { value: 'urgent-calendar', label: 'Pilne (kalendarz)' },
+  { value: 'urgent-list', label: 'Pilne (lista miesięcy)' }
+];
+const EVENT_FILTERS = ['all', 'upcoming', 'past', 'urgent'];
+let scheduleFilter = readStored(SCHEDULE_FILTER_KEY, SCHEDULE_FILTERS.map(f => f.value), 'all');
+let scheduleMode = scheduleFilter.startsWith('urgent') ? 'events' : 'tasks', mgmtEventFilter = readStored(EVENT_FILTER_KEY, EVENT_FILTERS, 'all'), isScheduleAllExpanded = false;
 
 async function groupModal(gid) { const g = gid && normalized(await getOne('groups', gid)); $('#group-form').reset(); $('#group-id').value = g?.id || ''; $('#group-name').value = g?.name || ''; $('#group-color').value = g?.color || '#0f766e'; $('#group-modal').showModal(); }
 async function subgroupModal(gid, sid) { const g = normalized(await getOne('groups', gid)), s = sid && g.subgroups.find(x => x.id === sid); $('#subgroup-form').reset(); $('#subgroup-group').value = gid; $('#subgroup-id').value = sid || ''; $('#subgroup-name').value = s?.name || ''; $('#subgroup-url').value = s?.url || ''; $('#subgroup-start-date').value = s?.startDate || today(); $('#subgroup-end-date').value = s?.endDate || ''; $('#subgroup-modal').showModal(); }
@@ -1237,9 +1296,6 @@ async function boot() {
   // ikony dolnej nawigacji są statyczne (nie odświeżają się przy renderach widoków), więc inicjalizujemy je raz
   if (window.lucide) lucide.createIcons({ root: $('nav') });
 
-  $('#backlog-panel').addEventListener('toggle', e => localStorage.setItem('rotask_overdue_tasks_open', String(e.target.open)));
-  $('#today-events-critical').addEventListener('toggle', e => localStorage.setItem('rotask_overdue_events_open', String(e.target.open)));
-
   // Obsługa przycisków Rozwiń wszystkie / Zwiń wszystkie w widoku Edycja
   $('#expand-all').onclick = () => {
     $$('.group-accordion').forEach(acc => { acc.open = true; });
@@ -1265,32 +1321,70 @@ async function boot() {
 
   $('#collapse').onclick = () => {
     isScheduleAllExpanded = !isScheduleAllExpanded;
+    clearAccordionKeys('sched-month-');
     $('#collapse').textContent = isScheduleAllExpanded ? 'Zwiń' : 'Rozwiń';
     renderScheduleV2();
   };
 
-  $$('.filter').forEach(btn => btn.onclick = () => {
-    scheduleFilter = btn.dataset.filter;
-    $$('.filter').forEach(b => b.className = 'filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900');
-    btn.className = 'filter filter-pill filter-pill-active px-3 py-1.5 text-sm font-bold';
-    renderScheduleV2();
-  });
+  const renderSchedFilterUi = () => {
+    const current = SCHEDULE_FILTERS.find(f => f.value === scheduleFilter) || SCHEDULE_FILTERS[0];
+    $('#sched-filter-label').textContent = `· ${current.label}`;
+    $('#sched-filter-menu').innerHTML = SCHEDULE_FILTERS.map(f => `<button type="button" data-sched-filter="${f.value}" class="block w-full rounded-lg px-3 py-2 text-left text-sm font-bold ${f.value === scheduleFilter ? 'bg-teal-700 text-white' : 'text-teal-900 hover:bg-teal-50'}">${f.label}</button>`).join('');
+  };
 
-  $$('[data-schedule-mode]').forEach(btn => btn.onclick = () => {
-    scheduleMode = btn.dataset.scheduleMode;
-    $$('[data-schedule-mode]').forEach(b => b.className = 'schedule-mode px-3 py-2.5 text-sm font-bold text-teal-900');
-    btn.className = 'schedule-mode bg-teal-700 px-3 py-2.5 text-sm font-bold text-white';
-    $('#schedule-tasks-pane').hidden = scheduleMode !== 'tasks';
-    $('#schedule-events-pane').hidden = scheduleMode !== 'events';
-    if (scheduleMode === 'tasks') renderScheduleV2(); else renderScheduleEvents();
-  });
+  const setScheduleMode = (mode, render = true) => {
+    scheduleMode = mode;
+    $$('[data-schedule-mode]').forEach(b => b.className = b.dataset.scheduleMode === mode ? 'schedule-mode bg-teal-700 px-3 py-2.5 text-sm font-bold text-white' : 'schedule-mode px-3 py-2.5 text-sm font-bold text-teal-900');
+    $('#schedule-tasks-pane').hidden = mode !== 'tasks';
+    $('#schedule-events-pane').hidden = mode !== 'events';
+    $('#collapse').hidden = mode !== 'tasks';
+    if (mode === 'tasks' && scheduleFilter.startsWith('urgent')) { scheduleFilter = 'all'; writeStored(SCHEDULE_FILTER_KEY, scheduleFilter); }
+    renderSchedFilterUi();
+    if (!render) return;
+    if (mode === 'tasks') renderScheduleV2(); else renderScheduleEvents();
+  };
 
-  $$('.sched-event-filter').forEach(btn => btn.onclick = () => {
-    scheduleEventFilter = btn.dataset.eventFilter;
-    $$('.sched-event-filter').forEach(b => b.className = 'sched-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900');
-    btn.className = 'sched-event-filter filter-pill filter-pill-active px-3 py-1.5 text-sm font-bold';
+  $$('[data-schedule-mode]').forEach(btn => btn.onclick = () => setScheduleMode(btn.dataset.scheduleMode));
+
+  $('#sched-filter-btn').onclick = event => {
+    event.stopPropagation();
+    $('#sched-filter-menu').hidden = !$('#sched-filter-menu').hidden;
+  };
+  document.addEventListener('click', () => { $('#sched-filter-menu').hidden = true; });
+  $('#sched-filter-menu').onclick = event => {
+    const btn = event.target.closest('[data-sched-filter]');
+    if (!btn) return;
+    event.stopPropagation();
+    scheduleFilter = btn.dataset.schedFilter;
+    writeStored(SCHEDULE_FILTER_KEY, scheduleFilter);
+    $('#sched-filter-menu').hidden = true;
+    setScheduleMode(scheduleFilter.startsWith('urgent') ? 'events' : scheduleMode);
+  };
+  renderSchedFilterUi();
+  setScheduleMode(scheduleMode, false);
+  if (window.lucide) lucide.createIcons({ root: $('#schedule-view') });
+
+  $('#schedule-events-list').onchange = async ev => {
+    const input = ev.target.closest('[data-occ]');
+    if (!input) return;
+    const [eventId, date] = input.dataset.occ.split('|');
+    const event = await getOne('events', eventId);
+    if (!event) return;
+    const completedDates = new Set(event.completedDates || []), completedAt = { ...(event.completedAt || {}) };
+    if (input.checked) { completedDates.add(date); completedAt[date] = today(); } else { completedDates.delete(date); delete completedAt[date]; }
+    event.completedDates = [...completedDates];
+    event.completedAt = completedAt;
+    await save('events', event);
     renderScheduleEvents();
-  });
+    renderReminders();
+  };
+  $('#schedule-events-list').onclick = event => {
+    const button = event.target.closest('[data-event-edit]');
+    if (!button) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openUnifiedModal('event', { eventId: button.dataset.eventEdit });
+  };
 
   const taskControls = $('#task-edit-controls'), eventPanel = $('.event-panel');
   $('#edit-add-group').onclick = () => {
@@ -1341,8 +1435,7 @@ async function boot() {
 
   $$('.mgmt-event-filter').forEach(btn => btn.onclick = () => {
     mgmtEventFilter = btn.dataset.eventFilter;
-    $$('.mgmt-event-filter').forEach(b => b.className = 'mgmt-event-filter filter-pill bg-white px-3 py-1.5 text-sm font-bold text-teal-900');
-    btn.className = 'mgmt-event-filter filter-pill filter-pill-active px-3 py-1.5 text-sm font-bold';
+    writeStored(EVENT_FILTER_KEY, mgmtEventFilter);
     renderEventsList();
   });
 
@@ -1398,7 +1491,7 @@ async function boot() {
       const existingTask = sg.tasks.find(task => task.id === tid);
       const task = { id: tid || uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: existingTask?.orderIndex ?? sg.tasks.length, createdAt: existingTask?.createdAt || new Date().toISOString() };
       sg.tasks = reindexTasks(tid ? sg.tasks.map(item => item.id === tid ? task : item) : [...sg.tasks, task]);
-      await save('groups', g);
+      savedEntryRef = { type: 'task', id: task.id };
       say('Zapisano zadanie');
     } else {
       const eid = $('#entry-id').value || uid();
@@ -1417,10 +1510,12 @@ async function boot() {
         completedDates: old?.completedDates || []
       };
       await save('events', ev);
+      savedEntryRef = { type: 'event', id: ev.id };
       say('Zapisano wydarzenie');
     }
     $('#unified-modal').close();
-    renderAll();
+    await renderAll();
+    highlightSavedEntry();
   };
 
   $('#unified-duplicate-btn').onclick = async () => {
