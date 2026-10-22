@@ -19,6 +19,21 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 </header>
 
 <section id="today-view" class="view px-4 py-5">
+  <details id="daily-planner-panel" data-accordion-id="today-planner" data-accordion-default="open" class="mb-5 overflow-hidden rounded-xl border border-teal-200 bg-white shadow-sm" open>
+    <summary class="flex cursor-pointer select-none flex-wrap items-center gap-2 bg-teal-50/70 px-4 py-3">
+      <span class="text-sm font-extrabold text-teal-950">⏱️ Planer Dnia</span>
+      <label class="flex items-center gap-1.5 text-xs font-bold text-teal-900">Start
+        <input id="planner-start" type="time" value="08:00" class="rounded-md border border-teal-200 bg-white px-1.5 py-1 text-xs font-bold text-slate-800">
+      </label>
+      <span id="planner-total" class="text-xs font-bold text-teal-800"></span>
+      <span id="planner-end" class="text-xs font-bold text-slate-500"></span>
+      <div class="ml-auto flex items-center gap-1.5">
+        <button type="button" data-planner-act="add" class="rounded-lg bg-teal-700 px-2.5 py-1.5 text-xs font-extrabold text-white hover:bg-teal-800">+ Dodaj punkt</button>
+        <button type="button" data-planner-act="reorder" id="planner-reorder-btn" class="rounded-lg border border-teal-600 px-2.5 py-1.5 text-xs font-extrabold text-teal-800 hover:bg-teal-50">↕ Zmień kolejność</button>
+      </div>
+    </summary>
+    <ul id="planner-list" class="space-y-2 border-t border-teal-100 p-3"></ul>
+  </details>
   <button id="quick-add-btn" type="button" class="group mb-5 flex w-full items-center justify-between rounded-xl border-2 border-dashed border-teal-600/40 bg-white px-4 py-3.5 shadow-sm transition hover:border-teal-600 hover:bg-teal-50/50 active:scale-[0.99]">
     <span class="flex items-center gap-3">
       <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white shadow-sm transition group-hover:scale-110 group-hover:bg-teal-800">
@@ -151,6 +166,8 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
     </div>
 
     <input id="entry-id" hidden>
+    <input id="entry-origin-group" type="hidden">
+    <input id="entry-origin-subgroup" type="hidden">
     <input id="entry-type" type="hidden" value="task">
 
     <!-- SEKCJA ZADANIA: Grupa i Podgrupa -->
@@ -214,6 +231,31 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
   </form>
 </dialog>
 
+<dialog id="planner-add-modal" class="w-full max-w-md rounded-2xl p-0 shadow-2xl">
+  <form id="planner-add-form" class="p-6">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-xl font-extrabold text-slate-900">Dodaj punkt do planera</h2>
+      <button type="button" data-close="planner-add-modal" class="rounded-lg p-1 text-slate-400 hover:text-slate-700">✕</button>
+    </div>
+    <label class="mb-3 flex flex-col gap-1 text-xs font-bold text-slate-700">Zadania i wydarzenia na dziś
+      <select id="planner-add-source"></select>
+    </label>
+    <div id="planner-add-name-row" class="mb-3">
+      <label class="flex flex-col gap-1 text-xs font-bold text-slate-700">Własny punkt doraźny
+        <input id="planner-add-name" type="text" placeholder="np. Telefon do banku">
+      </label>
+    </div>
+    <div class="mb-4 grid grid-cols-2 gap-3">
+      <label class="flex flex-col gap-1 text-xs font-bold text-slate-700">Czas (min)
+        <input id="planner-add-minutes" type="number" min="5" max="720" step="5" value="30">
+      </label>
+      <label class="flex items-end gap-2 pb-2 text-xs font-bold text-slate-700">
+        <input id="planner-add-daily" type="checkbox" class="h-4 w-4"> Powtarzaj codziennie w planerze
+      </label>
+    </div>
+    <button type="submit" class="w-full rounded-xl bg-teal-700 py-3 font-bold text-white shadow-sm hover:bg-teal-800">Dodaj do planera</button>
+  </form>
+</dialog>
 <div id="toast" hidden class="fixed left-1/2 top-5 z-50 -translate-x-1/2 rounded-md bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg"></div>
 
 <script>
@@ -577,7 +619,241 @@ async function moveTask(groupId, subgroupId, taskId, direction) {
 
 const GROUP_TODAY_LIMIT = 10;
 
+/* Planer Dnia: szablon i dni w store 'settings' (key: planner_template, planner_YYYY-MM-DD) */
+const PLANNER_TEMPLATE_KEY = 'planner_template', PLANNER_DEFAULT_START = '08:00', PLANNER_STEP = 5, PLANNER_MAX = 720;
+const plannerClone = value => JSON.parse(JSON.stringify(value));
+const plannerDayKey = date => `planner_${date}`;
+const plannerToMinutes = time => { const [h, m] = String(time || PLANNER_DEFAULT_START).split(':').map(Number); return (h || 0) * 60 + (m || 0); };
+const plannerFormatTime = minutes => { const x = ((Math.round(minutes) % 1440) + 1440) % 1440; return `${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+// koniec punktu N jest początkiem punktu N+1
+const plannerWindows = (startTime, items) => { let cursor = plannerToMinutes(startTime); return items.map(item => { const start = cursor; cursor += Number(item.minutes) || 0; return { start, end: cursor }; }); };
+const plannerDuration = minutes => { const h = Math.floor(minutes / 60), m = minutes % 60; return h ? (m ? `${h} godz ${m} min` : `${h} godz`) : `${m} min`; };
+let plannerReorder = false, plannerPick = new Map(), plannerChain = Promise.resolve();
+const plannerSourceMap = new Map(), plannerDayInit = new Map();
+
+const loadPlannerTemplate = async () => {
+  const tpl = await getOne('settings', PLANNER_TEMPLATE_KEY);
+  return tpl ? plannerClone(tpl) : { key: PLANNER_TEMPLATE_KEY, startTime: PLANNER_DEFAULT_START, items: [] };
+};
+
+// dzień tworzony z szablonu raz; równoległe wywołania współdzielą jedną inicjalizację
+const loadPlannerDay = (date = today()) => {
+  const key = plannerDayKey(date);
+  if (!plannerDayInit.has(key)) {
+    plannerDayInit.set(key, (async () => {
+      const existing = await getOne('settings', key);
+      if (existing) return plannerClone(existing);
+      const tpl = await loadPlannerTemplate();
+      const day = { key, startTime: tpl.startTime || PLANNER_DEFAULT_START, items: (tpl.items || []).map(item => ({ id: uid(), tid: item.id, name: item.name, minutes: item.minutes, src: item.src || null, done: false })) };
+      await save('settings', day);
+      return plannerClone(day);
+    })().finally(() => plannerDayInit.delete(key)));
+  }
+  return plannerDayInit.get(key).then(plannerClone);
+};
+
+// szablon = punkty oznaczone jako codzienne w zapisanym dniu
+const persistPlannerDay = async day => {
+  const template = { key: PLANNER_TEMPLATE_KEY, startTime: day.startTime, items: day.items.filter(item => item.tid).map(item => ({ id: item.tid, name: item.name, minutes: item.minutes, src: item.src || null })) };
+  await save('settings', template);
+  await save('settings', plannerClone(day));
+};
+
+const queuePlanner = task => {
+  plannerChain = plannerChain.then(task).catch(error => { console.error(error); say('Nie udało się zapisać planera'); });
+  return plannerChain;
+};
+
+const updatePlannerDay = mutate => queuePlanner(async () => {
+  const day = await loadPlannerDay();
+  if (mutate(day) !== false) await persistPlannerDay(day);
+  await renderPlannerNow();
+});
+
+const plannerPill = win => `<span class="shrink-0 whitespace-nowrap rounded-full bg-slate-100 px-2 py-0.5 font-mono text-xs font-bold text-slate-700">${plannerFormatTime(win.start)} - ${plannerFormatTime(win.end)}</span>`;
+const plannerSourceLabel = item => item.src ? `<span class="flex min-w-0 items-center gap-1.5 text-[10px] font-bold text-slate-500">${item.src.color ? `<span class="h-2 w-2 shrink-0 rounded-full" style="background:${html(item.src.color)}"></span>` : ''}<span class="truncate">${html(item.src.label)}</span></span>` : '';
+
+const plannerItemCard = (item, win) => `<li class="rounded-lg border bg-white px-2.5 py-2 shadow-sm ${item.done ? 'border-teal-200 opacity-60' : 'border-slate-200'}">
+  <div class="flex items-center gap-2">
+    <input data-planner-done="${item.id}" type="checkbox" class="h-5 w-5 shrink-0" title="Wykonane" ${item.done ? 'checked' : ''}>
+    ${plannerPill(win)}
+    <div class="min-w-0 flex-1">
+      <div class="truncate text-sm font-extrabold ${item.done ? 'line-through text-slate-400' : 'text-slate-900'}">${html(item.name)}</div>
+      ${plannerSourceLabel(item)}
+    </div>
+  </div>
+  <div class="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+    <div class="flex items-center gap-1 rounded-lg border border-slate-200 p-0.5">
+      <button type="button" data-planner-act="minus" data-planner-id="${item.id}" class="h-7 w-7 rounded-md font-extrabold text-slate-600 hover:bg-slate-100" title="Skróć o 5 min">-</button>
+      <span class="w-16 text-center text-xs font-bold text-slate-700">${Number(item.minutes)} min</span>
+      <button type="button" data-planner-act="plus" data-planner-id="${item.id}" class="h-7 w-7 rounded-md font-extrabold text-slate-600 hover:bg-slate-100" title="Wydłuż o 5 min">+</button>
+    </div>
+    <button type="button" data-planner-act="daily" data-planner-id="${item.id}" aria-pressed="${!!item.tid}" class="rounded-md border px-2 py-1 text-[11px] font-extrabold ${item.tid ? 'border-teal-700 bg-teal-700 text-white' : 'border-slate-300 text-slate-500 hover:bg-slate-50'}" title="Trafia automatycznie do planera każdego dnia">↻ Codzienne</button>
+    <button type="button" data-planner-act="remove" data-planner-id="${item.id}" class="ml-auto rounded-md px-2 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50" title="Usuń punkt">✕ Usuń</button>
+  </div>
+</li>`;
+
+const plannerPickCard = (item, win) => {
+  const number = plannerPick.get(item.id);
+  return `<li><button type="button" data-planner-act="pick" data-planner-id="${item.id}" class="flex w-full items-center gap-3 rounded-lg border-2 px-3 py-2.5 text-left ${number ? 'border-teal-600 bg-teal-50' : 'border-slate-200 bg-white hover:border-teal-400'}">
+    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${number ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-400'}">${number ?? '-'}</span>
+    ${plannerPill(win)}
+    <span class="min-w-0 flex-1 truncate text-sm font-extrabold text-slate-900">${html(item.name)}</span>
+  </button></li>`;
+};
+
+async function renderPlannerNow() {
+  const panel = $('#daily-planner-panel');
+  if (!panel) return;
+  const day = await loadPlannerDay();
+  const windows = plannerWindows(day.startTime, day.items);
+  const total = day.items.reduce((sum, item) => sum + (Number(item.minutes) || 0), 0);
+  $('#planner-start').value = day.startTime;
+  $('#planner-total').textContent = `Łącznie: ${plannerDuration(total)}`;
+  $('#planner-end').textContent = `Koniec: ${plannerFormatTime(plannerToMinutes(day.startTime) + total)}`;
+  const reorderBtn = $('#planner-reorder-btn');
+  reorderBtn.textContent = plannerReorder ? '✓ Gotowe' : '↕ Zmień kolejność';
+  reorderBtn.className = `rounded-lg border px-2.5 py-1.5 text-xs font-extrabold ${plannerReorder ? 'border-teal-700 bg-teal-700 text-white' : 'border-teal-600 text-teal-800 hover:bg-teal-50'}`;
+  $('#planner-list').innerHTML = day.items.length
+    ? day.items.map((item, index) => plannerReorder ? plannerPickCard(item, windows[index]) : plannerItemCard(item, windows[index])).join('')
+    : '<li class="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm font-bold text-slate-500">Brak punktów. Kliknij „+ Dodaj punkt”.</li>';
+}
+const renderPlanner = () => queuePlanner(renderPlannerNow);
+
+function plannerTogglePick(id) {
+  const removed = plannerPick.get(id);
+  if (removed) {
+    plannerPick.delete(id);
+    plannerPick.forEach((value, key) => { if (value > removed) plannerPick.set(key, value - 1); });
+  } else plannerPick.set(id, plannerPick.size + 1);
+}
+
+function plannerToggleReorder() {
+  if (!plannerReorder) { plannerReorder = true; plannerPick = new Map(); return renderPlanner(); }
+  plannerReorder = false;
+  const picks = plannerPick;
+  plannerPick = new Map();
+  return updatePlannerDay(day => {
+    if (!picks.size) return false;
+    const rank = id => picks.get(id) ?? Number.MAX_SAFE_INTEGER;
+    day.items = [...day.items].sort((a, b) => rank(a.id) - rank(b.id));
+  });
+}
+
+async function plannerTodayTasks() {
+  const [groupsRaw, holidays, config] = await Promise.all([all('groups'), all('vacations'), settings()]);
+  const groups = (groupsRaw || []).map(normalized), current = today(), holidaySet = new Set(), workdayMap = new Map();
+  (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
+  let workCount = 0;
+  for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
+  return fastNestedPlan(current, groups, holidaySet, workdayMap, config);
+}
+
+async function plannerTodayEvents() {
+  const events = await all('events'), now = today(), found = [];
+  for (const ev of events || []) {
+    const isMultiDayOnce = ev.repeat !== 'repeat' && ev.endDate && ev.endDate >= ev.baseDate;
+    let cur = ev.baseDate, guard = 0;
+    while (cur <= now && guard < 3650) {
+      if (ev.endDate && cur > ev.endDate) break;
+      if (cur === now) { found.push(ev); break; }
+      if (!isMultiDayOnce && ev.repeat !== 'repeat') break;
+      cur = nextEventDate(ev, cur, isMultiDayOnce);
+      guard++;
+    }
+  }
+  return found;
+}
+
+function plannerSyncAddForm() {
+  $('#planner-add-name-row').hidden = $('#planner-add-source').value !== 'adhoc';
+}
+
+async function openPlannerAdd() {
+  const [tasks, events] = await Promise.all([plannerTodayTasks(), plannerTodayEvents()]);
+  plannerSourceMap.clear();
+  const taskOptions = tasks.map(item => {
+    const key = `task|${item.group.id}|${item.subgroup.id}|${item.task.id}`;
+    const name = item.task.fallback ? item.subgroup.name : item.task.name;
+    plannerSourceMap.set(key, { name, src: { type: 'task', key, label: `${item.group.name} • ${item.subgroup.name}`, color: item.group.color || '#0f766e' } });
+    return `<option value="${html(key)}">${html(name)} (${html(item.group.name)})</option>`;
+  }).join('');
+  const eventOptions = events.map(ev => {
+    const key = `event|${ev.id}`;
+    plannerSourceMap.set(key, { name: ev.name, src: { type: 'event', key, label: 'Wydarzenie', color: '#7e22ce' } });
+    return `<option value="${html(key)}">${html(ev.name)}</option>`;
+  }).join('');
+  $('#planner-add-source').innerHTML = '<option value="adhoc">➕ Własny punkt doraźny</option>'
+    + (taskOptions ? `<optgroup label="Zadania na dziś">${taskOptions}</optgroup>` : '')
+    + (eventOptions ? `<optgroup label="Wydarzenia na dziś">${eventOptions}</optgroup>` : '');
+  $('#planner-add-form').reset();
+  plannerSyncAddForm();
+  $('#planner-add-modal').showModal();
+}
+
+function submitPlannerAdd() {
+  const choice = $('#planner-add-source').value;
+  const minutes = Math.min(PLANNER_MAX, Math.max(PLANNER_STEP, Math.round(Number($('#planner-add-minutes').value) || 30)));
+  const daily = $('#planner-add-daily').checked;
+  let name, src = null;
+  if (choice === 'adhoc') {
+    name = $('#planner-add-name').value.trim();
+    if (!name) return alert('Wpisz nazwę punktu doraźnego.');
+  } else {
+    const picked = plannerSourceMap.get(choice);
+    if (!picked) return alert('Wybierz punkt z listy.');
+    name = picked.name;
+    src = picked.src;
+  }
+  $('#planner-add-modal').close();
+  return updatePlannerDay(day => {
+    if (src && day.items.some(item => item.src?.key === src.key)) { say('Ten punkt jest już w planerze'); return false; }
+    day.items.push({ id: uid(), tid: daily ? uid() : null, name, minutes, src, done: false });
+  });
+}
+
+function initPlanner() {
+  const panel = $('#daily-planner-panel');
+  panel.open = accordionOpen(panel);
+  panel.addEventListener('click', event => {
+    const button = event.target.closest('[data-planner-act]');
+    if (!button) return;
+    const act = button.dataset.plannerAct, id = button.dataset.plannerId;
+    if (act === 'add') return openPlannerAdd();
+    if (act === 'reorder') return plannerToggleReorder();
+    if (act === 'pick') { plannerTogglePick(id); return renderPlanner(); }
+    if (!['minus', 'plus', 'daily', 'remove'].includes(act)) return;
+    return updatePlannerDay(day => {
+      const index = day.items.findIndex(item => item.id === id);
+      const item = day.items[index];
+      if (!item) return false;
+      if (act === 'minus' || act === 'plus') {
+        const delta = act === 'plus' ? PLANNER_STEP : -PLANNER_STEP;
+        item.minutes = Math.min(PLANNER_MAX, Math.max(PLANNER_STEP, (Number(item.minutes) || 0) + delta));
+      } else if (act === 'daily') {
+        item.tid = item.tid ? null : uid();
+      } else {
+        if (item.tid && !confirm('Punkt jest codzienny i zniknie też z szablonu. Usunąć?')) return false;
+        day.items.splice(index, 1);
+      }
+    });
+  });
+  panel.addEventListener('change', event => {
+    const target = event.target;
+    if (target.matches('[data-planner-done]')) {
+      const id = target.dataset.plannerDone, checked = target.checked;
+      updatePlannerDay(day => { const item = day.items.find(i => i.id === id); if (!item) return false; item.done = checked; });
+    } else if (target.id === 'planner-start') {
+      const value = target.value || PLANNER_DEFAULT_START;
+      updatePlannerDay(day => { day.startTime = value; });
+    }
+  });
+  $('#planner-add-source').addEventListener('change', plannerSyncAddForm);
+  $('#planner-add-form').addEventListener('submit', event => { event.preventDefault(); submitPlannerAdd(); });
+}
+
 async function renderTodayV2() {
+  renderPlanner();
   const [groupsRaw, holidays, config, completions, settingsRecords] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions'), all('settings')]);
   const isGrouped = !!(settingsRecords || []).find(s => s.key === 'today_grouped_view')?.val;
   const groups = (groupsRaw || []).map(normalized);
@@ -1232,6 +1508,8 @@ window.openUnifiedModal = async function(type = 'task', opts = {}) {
   $('#entry-repeat').onchange = () => { $('#entry-interval-row').style.display = $('#entry-repeat').value === 'repeat' ? 'grid' : 'none'; };
   $('#entry-start-date').value = today();
   $('#entry-end-date').value = '';
+  $('#entry-origin-group').value = opts.groupId || '';
+  $('#entry-origin-subgroup').value = opts.subgroupId || '';
 
   const delBtn = $('#unified-delete-btn');
   delBtn.classList.add('hidden');
@@ -1461,6 +1739,16 @@ async function boot() {
 
     if (mode === 'task') {
       let gid = $('#entry-group').value, sid = $('#entry-subgroup').value, tid = $('#entry-id').value;
+      const originGid = $('#entry-origin-group').value, originSid = $('#entry-origin-subgroup').value;
+      const touched = new Map();
+      const loadGroup = async id => {
+        if (!touched.has(id)) {
+          const raw = await getOne('groups', id);
+          if (!raw) return undefined;
+          touched.set(id, normalized(raw));
+        }
+        return touched.get(id);
+      };
       let g;
 
       if (gid === '__NEW_GROUP__') {
@@ -1468,9 +1756,10 @@ async function boot() {
         if (!newGName) return alert('Wpisz nazwę dla nowej grupy.');
         const newGColor = $('#new-group-inline-color').value || '#0f766e';
         g = { id: uid(), name: newGName, color: newGColor, subgroups: [], active: true, created: new Date().toISOString() };
+        touched.set(g.id, g);
         gid = g.id;
       } else {
-        g = normalized(await getOne('groups', gid));
+        g = await loadGroup(gid);
       }
 
       if (!g) return alert('Nie znaleziono grupy.');
@@ -1488,9 +1777,17 @@ async function boot() {
 
       if (!sg) return alert('Nie znaleziono wybranej podgrupy.');
 
-      const existingTask = sg.tasks.find(task => task.id === tid);
-      const task = { id: tid || uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: existingTask?.orderIndex ?? sg.tasks.length, createdAt: existingTask?.createdAt || new Date().toISOString() };
-      sg.tasks = reindexTasks(tid ? sg.tasks.map(item => item.id === tid ? task : item) : [...sg.tasks, task]);
+      // Edycja zmienionej podgrupy: zadanie usuwane jest z pierwotnego miejsca
+      let previous;
+      if (tid && originGid && originSid) {
+        const originSg = (await loadGroup(originGid))?.subgroups.find(s => s.id === originSid);
+        previous = originSg?.tasks.find(t => t.id === tid);
+        if (originSg && originSg !== sg) originSg.tasks = reindexTasks(originSg.tasks.filter(t => t.id !== tid));
+      }
+      const inTarget = sg.tasks.find(t => t.id === tid);
+      const task = { id: tid || uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: inTarget ? inTarget.orderIndex : sg.tasks.length, createdAt: (inTarget || previous)?.createdAt || new Date().toISOString() };
+      sg.tasks = reindexTasks([...sg.tasks.filter(t => t.id !== task.id), task]);
+      for (const changed of touched.values()) await save('groups', changed);
       savedEntryRef = { type: 'task', id: task.id };
       say('Zapisano zadanie');
     } else {
@@ -1573,7 +1870,7 @@ async function boot() {
     const mode = $('#entry-type').value;
     if (!confirm('Czy na pewno chcesz usunąć ten wpis?')) return;
     if (mode === 'task') {
-      const gid = $('#entry-group').value, sid = $('#entry-subgroup').value, tid = $('#entry-id').value;
+      const gid = $('#entry-origin-group').value, sid = $('#entry-origin-subgroup').value, tid = $('#entry-id').value;
       if (!tid) return;
       const g = normalized(await getOne('groups', gid)), sg = g?.subgroups.find(s => s.id === sid);
       if (!sg) return;
@@ -1591,6 +1888,7 @@ async function boot() {
   };
 
   $$('[data-close]').forEach(b => b.onclick = () => $(`#${b.dataset.close}`).close());
+  initPlanner();
   await renderAll();
 }
 window.addEventListener('load', boot, { once: true });
