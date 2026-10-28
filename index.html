@@ -186,7 +186,7 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 <!-- MODALE -->
 <dialog id="group-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="group-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Grupa zadań</h2><button type="button" data-close="group-modal" class="p-1 text-slate-400 transition hover:text-slate-700">✕</button></div><input id="group-id" hidden><label class="mb-4 block text-sm font-bold">Nazwa<input id="group-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Języki"></label><label class="mb-5 block text-sm font-bold">Kolor<input id="group-color" type="color" value="#0f766e" class="mt-1 h-11 w-full"></label><div id="group-pause-row" hidden class="mb-5 flex items-center justify-between gap-3 rounded-lg bg-slate-100 p-3"><p class="text-sm font-bold text-slate-700">Rotacja: <span id="group-pause-state"></span></p><button type="button" id="group-pause-btn" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50"></button></div><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz grupę</button></form></dialog>
 
-<dialog id="subgroup-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="subgroup-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Podgrupa</h2><button type="button" data-close="subgroup-modal">✕</button></div><input id="subgroup-group" hidden><input id="subgroup-id" hidden><label class="mb-3 block text-sm font-bold">Nazwa podgrupy<input id="subgroup-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Poniedziałkowa nauka"></label><label class="mb-3 block text-sm font-bold">Link URL (opcjonalny)<input id="subgroup-url" type="url" class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="https://..."></label><label class="mb-3 block text-sm font-bold">Tryb cyklu<select id="subgroup-repeat" class="mt-1 w-full rounded-md border-slate-300 p-3 font-normal"><option value="repeat">Powtarzalne</option><option value="once">Jednorazowo (bez restartu cyklu)</option></select></label><div class="mb-4 grid grid-cols-2 gap-3"><label class="text-xs font-bold text-slate-700">Aktywna od<input id="subgroup-start-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label><label class="text-xs font-bold text-slate-700">Aktywna do (opcjonalnie)<input id="subgroup-end-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label></div><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz podgrupę</button></form></dialog>
+<dialog id="subgroup-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="subgroup-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Podgrupa</h2><button type="button" data-close="subgroup-modal">✕</button></div><input id="subgroup-group" hidden><input id="subgroup-id" hidden><label class="mb-3 block text-sm font-bold">Nazwa podgrupy<input id="subgroup-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Poniedziałkowa nauka"></label><label class="mb-3 block text-sm font-bold">Link URL (opcjonalny)<input id="subgroup-url" type="url" class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="https://..."></label><label class="mb-3 block text-sm font-bold">Tryb cyklu<select id="subgroup-repeat" class="mt-1 w-full rounded-md border-slate-300 p-3 font-normal"><option value="repeat">Powtarzająca się</option><option value="once">Jednorazowa</option></select></label><label class="mb-3 block text-sm font-bold">Interwał (co ile dni)<input id="subgroup-interval" type="number" min="1" step="1" value="1" required class="mt-1 w-full rounded-md border-slate-300 p-3 font-normal"></label><div class="mb-4 grid grid-cols-2 gap-3"><label class="text-xs font-bold text-slate-700">Aktywna od<input id="subgroup-start-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label><label class="text-xs font-bold text-slate-700">Aktywna do (opcjonalnie)<input id="subgroup-end-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label></div><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz podgrupę</button></form></dialog>
 
 <!-- JEDNOLITY MODAL WPISU -->
 <dialog id="unified-modal" class="w-[calc(100%-2rem)] max-w-md rounded-2xl border-0 p-0 shadow-2xl">
@@ -562,6 +562,7 @@ function normalized(group) {
       url: s.url || '',
       startDate: s.startDate || '',
       endDate: s.endDate || '',
+      interval: Math.max(1, Number(s.interval) || 1),
       tasks: Array.isArray(s.tasks) ? s.tasks.map((t, index) => ({ ...t, startDate: t.startDate || '', endDate: t.endDate || '', orderIndex: Number.isFinite(Number(t.orderIndex)) ? Number(t.orderIndex) : index })) : []
     }))
   };
@@ -573,70 +574,104 @@ const reindexTasks = tasks => orderedTasks(tasks).map((task, index) => ({ ...tas
 
 const rotationCache = new WeakMap();
 const daysBetween = (from, to) => Math.round((new Date(to + 'T12:00:00') - new Date(from + 'T12:00:00')) / 86400000);
-// Dzień odniesienia licznika "dni po": stoi w dniu pauzy i nie rośnie o dni trwania pauzy.
-const lateReferenceDate = (group, current) => addDays(group.paused && group.pausedOn ? group.pausedOn : current, -(group.pauseOffset || 0));
+// Historia pauz węzła (grupa lub podgrupa): [{ from, to }], to = null dla trwającej pauzy.
+// Starsze zapisy mają tylko znaczniki paused/pausedOn; wtedy traktujemy je jako jedną pauzę.
+const pauseSpans = node => node.pauseLog || (node.paused ? [{ from: node.pausedOn || today(), to: null }] : []);
+const isPausedOn = (node, date) => pauseSpans(node).some(span => date >= span.from && (!span.to || date < span.to));
 
-// Zamrożona zaległość z zapisu pauzy; null, gdy zadanie lub podgrupa już nie istnieje.
-function resolvePendingItem(group, ref) {
-  const subgroup = group.subgroups.find(s => s.id === ref.subgroupId);
-  if (!subgroup) return null;
-  const tasks = subgroup.tasks || [];
-  const task = tasks.length ? tasks.find(t => t.id === ref.taskId) : (ref.taskId === `${subgroup.id}-single` ? { id: ref.taskId, name: subgroup.name, url: subgroup.url || '', fallback: true } : null);
-  if (!task) return null;
-  return { group, subgroup, task, subgroupIndex: 0, subgroupCount: ref.subgroupCount || 1, taskIndex: 0, taskCount: ref.taskCount || 1, frozen: true };
+// Dni opóźnienia od daty do dziś, pomijając dni, w których grupa lub podgrupa była wstrzymana.
+function lateDays(date, current, group, subgroup) {
+  const spans = [...pauseSpans(group), ...(subgroup ? pauseSpans(subgroup) : [])]
+    .map(span => ({ from: span.from > date ? span.from : date, to: span.to && span.to < current ? span.to : current }))
+    .filter(span => span.from < span.to)
+    .sort((a, b) => a.from.localeCompare(b.from));
+  let paused = 0, covered = '';
+  spans.forEach(span => {
+    const from = span.from > covered ? span.from : covered;
+    if (span.to > from) { paused += daysBetween(from, span.to); covered = span.to; }
+  });
+  return Math.max(0, daysBetween(date, current) - paused);
 }
 
-// Niewykonane zadania wstrzymanej grupy wzięte wprost z jej podgrup; data = dzień pauzy (zamrożona).
-function pausedPoolItems(group, completions, current) {
-  const date = group.pausedOn || current, doneEver = new Set(), doneToday = new Set(), items = [];
-  completions.forEach(c => { if (c.groupId === group.id && c.done) { doneEver.add(c.taskId); if (c.completedDate === current) doneToday.add(c.taskId); } });
-  group.subgroups.forEach(subgroup => {
-    if (!isActiveOn(subgroup, date)) return;
-    const tasks = subgroup.tasks && subgroup.tasks.length ? subgroup.tasks.filter(t => isActiveOn(t, date)) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
-    tasks.forEach(task => {
-      if (doneEver.has(task.id) && !doneToday.has(task.id)) return;
-      items.push({ date, group, subgroup, task, subgroupIndex: 0, subgroupCount: group.subgroups.length, taskIndex: 0, taskCount: tasks.length, frozen: true, completed: doneToday.has(task.id) });
+// Przełącza pauzę grupy lub podgrupy. Zmienia wyłącznie pola pauzy: daty, interwały i kolejność zadań zostają.
+function withPauseToggled(node, current = today()) {
+  const log = pauseSpans(node).map(span => ({ ...span }));
+  if (node.paused) {
+    const open = log[log.length - 1];
+    if (open && !open.to) open.to = current;
+    const { pausedOn, ...rest } = node;
+    return { ...rest, paused: false, pauseLog: log };
+  }
+  log.push({ from: current, to: null });
+  return { ...node, paused: true, pausedOn: current, pauseLog: log };
+}
+
+// Niewykonane zadania węzłów wstrzymanych (cała grupa albo pojedyncza podgrupa). Data = dzień pauzy.
+function pausedPoolItems(groups, completions, current) {
+  const items = [];
+  groups.forEach(group => {
+    const doneEver = new Set(), doneToday = new Set();
+    completions.forEach(c => { if (c.groupId === group.id && c.done) { doneEver.add(c.taskId); if (c.completedDate === current) doneToday.add(c.taskId); } });
+    group.subgroups.forEach(subgroup => {
+      if (!group.paused && !subgroup.paused) return;
+      const node = group.paused ? group : subgroup;
+      const date = node.pausedOn || current;
+      if (!isActiveOn(subgroup, date)) return;
+      const tasks = subgroup.tasks && subgroup.tasks.length ? orderedTasks(subgroup.tasks) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
+      const cycleDays = Math.max(1, Number(subgroup.interval) || 1) * tasks.length;
+      tasks.forEach(task => {
+        if (doneEver.has(task.id) && !doneToday.has(task.id)) return;
+        items.push({ date, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: doneToday.has(task.id) });
+      });
     });
   });
   return items;
 }
 
-// Symulacja rotacji w przód (cache na holidaySet + groups + config): plan dni i wystąpienia podgrup jednorazowych.
+// Dopełnia zaległości o zadania z puli wstrzymanych węzłów, których nie ma jeszcze w planie (bez duplikatów).
+function mergePausedPool(overdue, groups, completions, current) {
+  const seen = new Set(overdue.map(item => `${item.group.id}|${item.subgroup.id}|${item.task.id}`));
+  pausedPoolItems(groups, completions, current).forEach(item => {
+    const key = `${item.group.id}|${item.subgroup.id}|${item.task.id}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    overdue.push(item);
+  });
+  return overdue;
+}
+
+// Symulacja rotacji w przód (cache na holidaySet + groups + config).
+// Każda podgrupa ma własny harmonogram: kolejne zadanie co `interval` dni od `startDate`.
+// Dni wstrzymania (grupy lub podgrupy) są pomijane, a termin nie jest przesuwany ani resetowany.
 function buildRotationPlan(groups, holidaySet, config) {
-  const byDate = new Map(), activations = new Map(), onceOccurrences = new Map();
+  const byDate = new Map(), onceOccurrences = new Map(), schedule = new Map();
   const groupList = groups.map(normalized);
-  let turn = 0;
+  groupList.forEach(group => group.subgroups.forEach(sg => schedule.set(sg.id, { next: sg.startDate || config.start, activations: 0 })));
   for (let cursor = config.start; cursor <= config.end; cursor = addDays(cursor, 1)) {
     if (holidaySet.has(cursor)) continue;
-    const dayTurn = turn++, dayItems = [];
+    const dayItems = [];
     groupList.forEach(group => {
-      if (group.active === false || group.paused || !group.subgroups.length) return;
-      // Podgrupa jednorazowa wypada z rotacji po wyczerpaniu wszystkich odcinków (bez restartu cyklu).
-      const subgroups = group.subgroups.filter(sg => isActiveOn(sg, cursor) && !(sg.repeatMode === 'once' && (activations.get(sg.id) || 0) >= Math.max(1, (sg.tasks || []).length)));
-      if (!subgroups.length) return;
-      const subgroup = subgroups[dayTurn % subgroups.length];
-      const activationNo = activations.get(subgroup.id) || 0;
-      activations.set(subgroup.id, activationNo + 1);
-      const activeTasks = orderedTasks((subgroup.tasks || []).filter(task => isActiveOn(task, cursor)));
-      const tasks = subgroup.tasks && subgroup.tasks.length ? activeTasks : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
-      if (!tasks.length) return;
-      const taskIndex = activationNo % tasks.length, task = tasks[taskIndex];
-      dayItems.push({ group, subgroup, task, subgroupIndex: dayTurn % subgroups.length, subgroupCount: subgroups.length, taskIndex, taskCount: tasks.length });
-      if (subgroup.repeatMode === 'once') {
-        if (!onceOccurrences.has(subgroup.id)) onceOccurrences.set(subgroup.id, []);
-        onceOccurrences.get(subgroup.id).push({ date: cursor, groupId: group.id, taskId: task.id });
-      }
+      if (group.active === false || !group.subgroups.length) return;
+      const groupPaused = isPausedOn(group, cursor);
+      group.subgroups.forEach(subgroup => {
+        const state = schedule.get(subgroup.id);
+        if (groupPaused || isPausedOn(subgroup, cursor) || !isActiveOn(subgroup, cursor) || cursor < state.next) return;
+        const tasks = subgroup.tasks && subgroup.tasks.length ? orderedTasks(subgroup.tasks) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
+        // Podgrupa jednorazowa wypada z rotacji po wykonaniu wszystkich odcinków (bez restartu cyklu).
+        if (subgroup.repeatMode === 'once' && state.activations >= tasks.length) return;
+        const taskIndex = state.activations % tasks.length, task = tasks[taskIndex];
+        const interval = Math.max(1, Number(subgroup.interval) || 1);
+        dayItems.push({ group, subgroup, task, taskIndex, taskCount: tasks.length, cycleDays: interval * tasks.length });
+        state.activations++;
+        state.next = addDays(cursor, interval);
+        if (subgroup.repeatMode === 'once') {
+          if (!onceOccurrences.has(subgroup.id)) onceOccurrences.set(subgroup.id, []);
+          onceOccurrences.get(subgroup.id).push({ date: cursor, groupId: group.id, taskId: task.id });
+        }
+      });
     });
     if (dayItems.length) byDate.set(cursor, dayItems);
   }
-  // Zaległości wznowionych grup wchodzą do planu dat; wstrzymane mają pulę z podgrup (pausedPoolItems).
-  groupList.forEach(group => (group.paused ? [] : group.pendingOverdue || []).forEach(ref => {
-    const item = resolvePendingItem(group, ref);
-    if (!item) return;
-    const list = byDate.get(ref.date) || [];
-    if (!list.some(x => x.group.id === group.id && x.task.id === item.task.id)) list.push(item);
-    byDate.set(ref.date, list);
-  }));
   return { byDate, onceOccurrences };
 }
 
@@ -854,7 +889,7 @@ async function plannerTaskSources() {
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
   const todayItems = fastNestedPlan(current, groups, holidaySet, workdayMap, config).map(item => ({ ...item, date: current }));
-  const overdueItems = [...getOverdueTasks(groups, holidays || [], config, completions || []), ...groups.filter(g => g.paused).flatMap(g => pausedPoolItems(g, completions || [], current))];
+  const overdueItems = mergePausedPool(getOverdueTasks(groups, holidays || [], config, completions || []), groups, completions || [], current);
   return groups
     .map(group => ({ group, items: [...overdueItems, ...todayItems].filter(item => item.group.id === group.id).slice(0, 5) }))
     .filter(entry => entry.items.length);
@@ -1016,9 +1051,11 @@ async function renderTodayV2() {
 
   const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config);
   const overdue = getOverdueTasks(groups, holidays, config, completions);
-  groups.filter(g => g.paused).forEach(g => overdue.push(...pausedPoolItems(g, completions || [], current)));
-  // Zaległości wstrzymanych grup są zawsze w głównej liście, poza zwijanym panelem.
-  const pausedOverdue = overdue.filter(item => item.group.paused), activeOverdue = overdue.filter(item => !item.group.paused);
+  // Wstrzymane grupy lub podgrupy: zaległości z planu zostają, brakujące zadania dopełnia pula.
+  mergePausedPool(overdue, groups, completions || [], current);
+  // Zaległości wstrzymanych węzłów są zawsze w głównej liście, poza zwijanym panelem.
+  const isPausedItem = item => !!(item.group.paused || item.subgroup.paused);
+  const pausedOverdue = overdue.filter(isPausedItem), activeOverdue = overdue.filter(item => !isPausedItem(item));
 
   const holidayNoteEl = $('#holiday-note'); if (holidayNoteEl) holidayNoteEl.hidden = !holidaySet.has(current);
   const emptyTodayEl = $('#empty-today'); if (emptyTodayEl) emptyTodayEl.hidden = holidaySet.has(current) || items.length > 0 || pausedOverdue.length > 0;
@@ -1039,9 +1076,9 @@ async function renderTodayV2() {
   };
 
   const renderBacklogCard = (item, showGroup = true) => {
-    const daysLate = daysBetween(item.date, item.frozen ? lateReferenceDate(item.group, current) : current);
+    const daysLate = lateDays(item.date, current, item.group, item.subgroup);
     const lateBadge = daysLate === 1 ? '1 dzień po' : `${daysLate} dni po`;
-    const cycle = window.getScheduleSubtitle(item.date, { repeatUnit: 'days', repeatInterval: item.subgroupCount * item.taskCount, isRotation: true }, item.subgroup);
+    const cycle = window.getScheduleSubtitle(item.date, { repeatUnit: 'days', repeatInterval: item.cycleDays, isRotation: true }, item.subgroup);
     const segments = [];
     if (showGroup) segments.push({ text: item.group.name, html: html(item.group.name) });
     segments.push({ text: item.subgroup.name, html: item.subgroup.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.subgroup.url)}">${html(item.subgroup.name)}</a>` : html(item.subgroup.name) });
@@ -1087,7 +1124,7 @@ async function renderTodayV2() {
             <button type="button" data-task-edit="${item.group.id}|${item.subgroup.id}|${item.task.id}" class="shrink-0 p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
           </div>
           <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
-            <span class="text-xs text-slate-500">co ${item.subgroupCount * item.taskCount} dni</span>
+            <span class="text-xs text-slate-500">co ${item.cycleDays} dni</span>
           </div>
         </div>
       </div>
@@ -1302,9 +1339,10 @@ async function renderGroupsV2() {
     <div class="p-3.5 pt-1 space-y-3 bg-white">
       ${g.subgroups.map((sg, i) => `<details class="subgroup-acc overflow-hidden rounded-xl border bg-white" data-subgroup-id="${sg.id}" ${isSubgroupOpen(sg.id) ? 'open' : ''} style="border-color:${g.color}55">
         <summary class="flex cursor-pointer select-none items-center justify-between gap-2 bg-teal-800 p-3 text-white">
-          <span class="flex min-w-0 items-center gap-1.5 text-xs font-bold text-white"><span class="subgroup-chevron inline-block text-teal-200 transition-transform">▸</span>${i + 1}. ${html(sg.name)}${onceTag(sg)}</span>
+          <span class="flex min-w-0 items-center gap-1.5 text-xs font-bold text-white"><span class="subgroup-chevron inline-block text-teal-200 transition-transform">▸</span>${i + 1}. ${html(sg.name)}${onceTag(sg)}${sg.paused ? ' <span class="ml-1 shrink-0 rounded-md bg-slate-400 px-1.5 py-0.5 text-[10px] font-extrabold text-white">PAUZA</span>' : ''}<span class="ml-1 shrink-0 text-[10px] font-semibold text-teal-200">co ${Math.max(1, Number(sg.interval) || 1)} dni</span></span>
           <div class="flex shrink-0 items-center gap-1">
             <button data-v2-task-add="${g.id}|${sg.id}" title="Dodaj zadanie" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+            <button data-v2-subgroup-pause="${g.id}|${sg.id}" title="${sg.paused ? 'Wznów podgrupę' : 'Wstrzymaj podgrupę'}" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="${sg.paused ? 'play' : 'pause'}" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-edit="${g.id}|${sg.id}" title="Edytuj podgrupę" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-delete="${g.id}|${sg.id}" title="Usuń podgrupę" class="p-1 text-rose-200 hover:bg-rose-900/40 rounded transition"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
           </div>
@@ -1347,6 +1385,12 @@ async function renderGroupsV2() {
       return groupModal(vals[0]);
     }
     if (act === 'v2SubgroupAdd') return subgroupModal(vals[0]);
+    if (act === 'v2SubgroupPause') {
+      const raw = await getOne('groups', vals[0]);
+      if (!raw) return;
+      await save('groups', { ...raw, subgroups: (raw.subgroups || []).map(s => s.id === vals[1] ? withPauseToggled(s) : s) });
+      return renderAll();
+    }
     if (act === 'v2SubgroupEdit') return subgroupModal(vals[0], vals[1]);
     if (act === 'v2SubgroupDelete' && confirm('Usunąć podgrupę?')) { const g = normalized(await getOne('groups', vals[0])); g.subgroups = g.subgroups.filter(s => s.id !== vals[1]); await save('groups', g); renderAll(); }
     if (act === 'v2TaskAdd') return openUnifiedModal('task', { groupId: vals[0], subgroupId: vals[1] });
@@ -1662,7 +1706,7 @@ let scheduleFilter = readStored(SCHEDULE_FILTER_KEY, SCHEDULE_FILTERS.map(f => f
 let scheduleMode = scheduleFilter.startsWith('urgent') ? 'events' : 'tasks', mgmtEventFilter = readStored(EVENT_FILTER_KEY, EVENT_FILTERS, 'all'), isScheduleAllExpanded = false;
 
 async function groupModal(gid) { const g = gid && normalized(await getOne('groups', gid)); $('#group-form').reset(); $('#group-id').value = g?.id || ''; $('#group-name').value = g?.name || ''; $('#group-color').value = g?.color || '#0f766e'; $('#group-pause-row').hidden = !g; if (g) { $('#group-pause-state').textContent = g.paused ? 'wstrzymana' : 'aktywna'; $('#group-pause-btn').textContent = g.paused ? 'Wznów rotację' : 'Wstrzymaj rotację grupy'; } $('#group-modal').showModal(); }
-async function subgroupModal(gid, sid) { const g = normalized(await getOne('groups', gid)), s = sid && g.subgroups.find(x => x.id === sid); $('#subgroup-form').reset(); $('#subgroup-group').value = gid; $('#subgroup-id').value = sid || ''; $('#subgroup-name').value = s?.name || ''; $('#subgroup-url').value = s?.url || ''; $('#subgroup-start-date').value = s?.startDate || today(); $('#subgroup-end-date').value = s?.endDate || ''; $('#subgroup-repeat').value = s?.repeatMode === 'once' ? 'once' : 'repeat'; $('#subgroup-modal').showModal(); }
+async function subgroupModal(gid, sid) { const g = normalized(await getOne('groups', gid)), s = sid && g.subgroups.find(x => x.id === sid); $('#subgroup-form').reset(); $('#subgroup-group').value = gid; $('#subgroup-id').value = sid || ''; $('#subgroup-name').value = s?.name || ''; $('#subgroup-url').value = s?.url || ''; $('#subgroup-start-date').value = s?.startDate || today(); $('#subgroup-end-date').value = s?.endDate || ''; $('#subgroup-repeat').value = s?.repeatMode === 'once' ? 'once' : 'repeat'; $('#subgroup-interval').value = s?.interval || 1; $('#subgroup-modal').showModal(); }
 
 window.openUnifiedModal = async function(type = 'task', opts = {}) {
   const form = $('#unified-form');
@@ -1722,6 +1766,9 @@ window.openUnifiedModal = async function(type = 'task', opts = {}) {
 
       $('#lbl-start-date').textContent = isTask ? 'Aktywne od' : 'Data rozpoczęcia';
       $('#lbl-end-date').textContent = isTask ? 'Aktywne do (opcjonalnie)' : 'Data zakończenia (opcjonalnie)';
+    // Zadania nie mają dat: harmonogram należy do podgrupy, więc pola dat są ukryte i nie są wymagane.
+    $('#entry-start-date').closest('div').style.display = isTask ? 'none' : '';
+    $('#entry-start-date').required = !isTask;
     $('#unified-modal-title').textContent = isTask ? (opts.taskId ? 'Edytuj zadanie' : 'Nowe zadanie') : (opts.eventId ? 'Edytuj wydarzenie' : 'Nowe wydarzenie');
     $('#unified-submit-btn').textContent = isTask ? 'Zapisz zadanie' : 'Zapisz wydarzenie';
     $('#unified-duplicate-btn').textContent = isTask ? '❐ Duplikuj to zadanie' : '❐ Duplikuj to wydarzenie';
@@ -1751,8 +1798,6 @@ window.openUnifiedModal = async function(type = 'task', opts = {}) {
         $('#entry-id').value = t.id;
         $('#entry-name').value = t.name || '';
         $('#entry-url').value = t.url || '';
-        $('#entry-start-date').value = t.startDate || today();
-        $('#entry-end-date').value = t.endDate || '';
         delBtn.classList.remove('hidden');
       }
     }
@@ -1956,28 +2001,21 @@ async function boot() {
 
   $('#group-pause-btn').onclick = async () => {
     const gid = $('#group-id').value;
-    const g = gid && normalized(await getOne('groups', gid));
-    if (!g) return;
-    const t = today();
-    if (g.paused) {
-      const completions = (await all('completions')) || [];
-      g.pendingOverdue = pausedPoolItems(g, completions, t).map(i => ({ date: i.date, subgroupId: i.subgroup.id, taskId: i.task.id, subgroupCount: i.subgroupCount, taskCount: i.taskCount }));
-      g.pauseOffset = (g.pauseOffset || 0) + daysBetween(g.pausedOn || t, t);
-      g.paused = false; delete g.pausedOn;
-      g.subgroups = g.subgroups.map(s => ({ ...s, startDate: t, tasks: (s.tasks || []).map(k => ({ ...k, startDate: t })) }));
-      say('Rotacja grupy wznowiona od dzisiaj. Zaległości zachowane.');
-    } else {
-      g.paused = true; g.pausedOn = t;
-      say('Rotacja grupy wstrzymana. Zaległości zachowane.');
-    }
+    const raw = gid ? await getOne('groups', gid) : undefined;
+    if (!raw) return;
+    // Pauza grupy dotyczy wszystkich podgrup naraz; daty, interwały i kolejność zadań pozostają bez zmian.
+    const g = withPauseToggled(raw);
+    say(g.paused ? 'Rotacja grupy wstrzymana. Zaległości zachowane.' : 'Rotacja grupy wznowiona. Terminy bez zmian.');
     await save('groups', g); $('#group-modal').close(); renderAll();
   };
 
   $('#subgroup-form').onsubmit = async e => {
     e.preventDefault();
     const g = normalized(await getOne('groups', $('#subgroup-group').value)), sid = $('#subgroup-id').value;
-    const data = { id: sid || uid(), name: $('#subgroup-name').value.trim(), url: $('#subgroup-url').value.trim(), startDate: $('#subgroup-start-date').value, endDate: $('#subgroup-end-date').value, repeatMode: $('#subgroup-repeat').value, tasks: [] };
-    if (sid) { const ex = g.subgroups.find(s => s.id === sid); data.tasks = ex?.tasks || []; g.subgroups = g.subgroups.map(s => s.id === sid ? data : s); } else g.subgroups.push(data);
+    const ex = g.subgroups.find(s => s.id === sid);
+    // Edycja podgrupy zachowuje stan pauzy, zadania i historię pauz; zmieniane są tylko pola formularza.
+    const data = { ...(ex || {}), id: sid || uid(), name: $('#subgroup-name').value.trim(), url: $('#subgroup-url').value.trim(), startDate: $('#subgroup-start-date').value, endDate: $('#subgroup-end-date').value, repeatMode: $('#subgroup-repeat').value, interval: Math.max(1, parseInt($('#subgroup-interval').value, 10) || 1), tasks: ex?.tasks || [] };
+    if (sid) g.subgroups = g.subgroups.map(s => s.id === sid ? data : s); else g.subgroups.push(data);
     await save('groups', g); $('#subgroup-modal').close(); renderAll();
   };
 
@@ -2017,7 +2055,7 @@ async function boot() {
       if (sid === '__NEW_SUBGROUP__' || gid === '__NEW_GROUP__') {
         const newSgName = $('#new-subgroup-inline-name').value.trim();
         if (!newSgName) return alert('Wpisz nazwę dla nowej podgrupy.');
-        sg = { id: uid(), name: newSgName, url: '', startDate: startVal, endDate: '', tasks: [] };
+        sg = { id: uid(), name: newSgName, url: '', startDate: today(), endDate: '', interval: 1, tasks: [] };
         g.subgroups.push(sg);
         sid = sg.id;
       } else {
@@ -2034,7 +2072,7 @@ async function boot() {
         if (originSg && originSg !== sg) originSg.tasks = reindexTasks(originSg.tasks.filter(t => t.id !== tid));
       }
       const inTarget = sg.tasks.find(t => t.id === tid);
-      const task = { id: tid || uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: inTarget ? inTarget.orderIndex : sg.tasks.length, createdAt: (inTarget || previous)?.createdAt || new Date().toISOString() };
+      const task = { id: tid || uid(), name, url: urlVal, orderIndex: inTarget ? inTarget.orderIndex : sg.tasks.length, createdAt: (inTarget || previous)?.createdAt || new Date().toISOString() };
       sg.tasks = reindexTasks([...sg.tasks.filter(t => t.id !== task.id), task]);
       for (const changed of touched.values()) await save('groups', changed);
       savedEntryRef = { type: 'task', id: task.id };
@@ -2085,14 +2123,14 @@ async function boot() {
       if (sid === '__NEW_SUBGROUP__' || gid === '__NEW_GROUP__') {
         const newSgName = $('#new-subgroup-inline-name').value.trim();
         if (!newSgName) return alert('Wpisz nazwę dla nowej podgrupy.');
-        sg = { id: uid(), name: newSgName, url: '', startDate: startVal, endDate: '', tasks: [] };
+        sg = { id: uid(), name: newSgName, url: '', startDate: today(), endDate: '', interval: 1, tasks: [] };
         g.subgroups.push(sg);
       } else {
         sg = g.subgroups.find(s => s.id === sid);
       }
       if (!sg) return;
 
-      sg.tasks = reindexTasks([...sg.tasks, { id: uid(), name, url: urlVal, startDate: startVal, endDate: endVal, orderIndex: sg.tasks.length, createdAt: new Date().toISOString() }]);
+      sg.tasks = reindexTasks([...sg.tasks, { id: uid(), name, url: urlVal, orderIndex: sg.tasks.length, createdAt: new Date().toISOString() }]);
       await save('groups', g);
       say('Zduplikowano zadanie');
     } else {
