@@ -71,13 +71,13 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
   </button>
 
   <div id="holiday-note" hidden class="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sky-950"><b>Dzisiaj masz urlop!</b><p class="mt-1 text-sm">Zadania są zamrożone, a sekwencje nie przesuwają się.</p></div>
-  <details id="today-events-critical" hidden data-accordion-id="today-critical-events" data-accordion-default="open" class="mb-4 overflow-hidden rounded-lg border border-purple-500 bg-purple-50"><summary id="today-events-critical-summary" class="cursor-pointer px-4 py-2.5 font-extrabold text-sm flex items-center justify-between text-purple-950"></summary><div id="today-events-critical-list" class="space-y-2 border-t border-purple-200 p-3"></div></details>
-  <details id="backlog-panel" hidden data-accordion-id="today-backlog" data-accordion-default="open" class="mb-4 overflow-hidden rounded-lg border border-amber-200 bg-amber-50"><summary id="backlog-summary" class="cursor-pointer px-4 py-2.5 font-extrabold text-sm flex items-center justify-between text-amber-950"></summary><div id="backlog-list" class="space-y-2 border-t border-amber-200 p-3"></div></details>
-  <div id="summary" class="mb-4 flex items-center justify-between rounded-lg bg-slate-900 px-4 py-2.5 text-white"></div>
+  <details id="today-events-critical" hidden data-accordion-id="today-critical-events" data-accordion-default="open" class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><summary id="today-events-critical-summary" class="cursor-pointer bg-slate-900 px-4 py-2.5 font-bold text-sm flex items-center justify-between text-white"></summary><div id="today-events-critical-list" class="space-y-2 border-t border-slate-200 p-3"></div></details>
+  <details id="backlog-panel" hidden data-accordion-id="today-backlog" data-accordion-default="open" class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><summary id="backlog-summary" class="cursor-pointer bg-slate-900 px-4 py-2.5 font-bold text-sm flex items-center justify-between text-white"></summary><div id="backlog-list" class="space-y-2 border-t border-slate-200 p-3"></div></details>
+  <div id="summary" class="mb-4 flex items-center justify-between rounded-xl bg-slate-900 px-4 py-2.5 text-white"></div>
   <div id="today-list" class="space-y-3"></div>
   <div id="empty-today" hidden class="py-14 text-center text-slate-500">Brak zadań. Dodaj grupę i kroki w Konfiguracji.</div>
   <section id="upcoming-events" hidden class="mt-6 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-    <div class="flex items-center justify-between rounded-lg bg-slate-900 px-4 py-2.5 text-white"><h2 class="font-extrabold">📅 Wydarzenia (kolejne 5 dni)</h2><span id="upcoming-events-summary" class="text-sm font-bold text-teal-300"></span></div>
+    <div class="flex items-center justify-between rounded-xl bg-slate-900 px-4 py-2.5 text-white"><h2 class="font-extrabold">📅 Wydarzenia (kolejne 5 dni)</h2><span id="upcoming-events-summary" class="text-sm font-bold text-teal-300"></span></div>
     <div id="upcoming-events-list" class="space-y-2 p-3"></div>
   </section>
 </section>
@@ -90,7 +90,7 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
     </div>
     <div class="mb-4 flex items-center gap-2">
       <div class="relative">
-        <button id="sched-filter-btn" type="button" class="flex items-center gap-1.5 rounded-full border border-teal-200 bg-white px-3.5 py-1.5 text-sm font-bold text-teal-900 shadow-sm"><i data-lucide="sliders-horizontal" class="h-4 w-4"></i>Filtry<span id="sched-filter-label" class="text-xs font-semibold text-teal-700"></span></button>
+        <button id="sched-filter-btn" type="button" class="flex items-center gap-1.5 rounded-xl bg-teal-900 px-3.5 py-2 text-sm font-bold text-white shadow-sm"><i data-lucide="sliders-horizontal" class="h-4 w-4"></i>Filtry<span id="sched-filter-label" class="text-xs font-semibold text-teal-200"></span></button>
         <div id="sched-filter-menu" hidden class="absolute left-0 top-full z-40 mt-2 w-56 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"></div>
       </div>
       <button id="collapse" class="ml-auto rounded-md bg-teal-100 px-3 py-1.5 text-sm font-bold text-teal-800">Rozwiń</button>
@@ -184,9 +184,9 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 </nav>
 
 <!-- MODALE -->
-<dialog id="group-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="group-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Grupa zadań</h2><button type="button" data-close="group-modal" class="p-1 text-slate-400 transition hover:text-slate-700">✕</button></div><input id="group-id" hidden><label class="mb-4 block text-sm font-bold">Nazwa<input id="group-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Języki"></label><label class="mb-5 block text-sm font-bold">Kolor<input id="group-color" type="color" value="#0f766e" class="mt-1 h-11 w-full"></label><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz grupę</button></form></dialog>
+<dialog id="group-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="group-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Grupa zadań</h2><button type="button" data-close="group-modal" class="p-1 text-slate-400 transition hover:text-slate-700">✕</button></div><input id="group-id" hidden><label class="mb-4 block text-sm font-bold">Nazwa<input id="group-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Języki"></label><label class="mb-5 block text-sm font-bold">Kolor<input id="group-color" type="color" value="#0f766e" class="mt-1 h-11 w-full"></label><div id="group-pause-row" hidden class="mb-5 flex items-center justify-between gap-3 rounded-lg bg-slate-100 p-3"><p class="text-sm font-bold text-slate-700">Rotacja: <span id="group-pause-state"></span></p><button type="button" id="group-pause-btn" class="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-slate-50"></button></div><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz grupę</button></form></dialog>
 
-<dialog id="subgroup-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="subgroup-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Podgrupa</h2><button type="button" data-close="subgroup-modal">✕</button></div><input id="subgroup-group" hidden><input id="subgroup-id" hidden><label class="mb-3 block text-sm font-bold">Nazwa podgrupy<input id="subgroup-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Poniedziałkowa nauka"></label><label class="mb-3 block text-sm font-bold">Link URL (opcjonalny)<input id="subgroup-url" type="url" class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="https://..."></label><div class="mb-4 grid grid-cols-2 gap-3"><label class="text-xs font-bold text-slate-700">Aktywna od<input id="subgroup-start-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label><label class="text-xs font-bold text-slate-700">Aktywna do (opcjonalnie)<input id="subgroup-end-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label></div><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz podgrupę</button></form></dialog>
+<dialog id="subgroup-modal" class="w-[calc(100%-2rem)] max-w-md rounded-xl border-0 p-0"><form id="subgroup-form" class="p-5"><div class="mb-5 flex justify-between"><h2 class="text-xl font-extrabold">Podgrupa</h2><button type="button" data-close="subgroup-modal">✕</button></div><input id="subgroup-group" hidden><input id="subgroup-id" hidden><label class="mb-3 block text-sm font-bold">Nazwa podgrupy<input id="subgroup-name" required class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="np. Poniedziałkowa nauka"></label><label class="mb-3 block text-sm font-bold">Link URL (opcjonalny)<input id="subgroup-url" type="url" class="mt-1 w-full rounded-md border-slate-300 p-3" placeholder="https://..."></label><label class="mb-3 block text-sm font-bold">Tryb cyklu<select id="subgroup-repeat" class="mt-1 w-full rounded-md border-slate-300 p-3 font-normal"><option value="repeat">Powtarzalne</option><option value="once">Jednorazowo (bez restartu cyklu)</option></select></label><div class="mb-4 grid grid-cols-2 gap-3"><label class="text-xs font-bold text-slate-700">Aktywna od<input id="subgroup-start-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label><label class="text-xs font-bold text-slate-700">Aktywna do (opcjonalnie)<input id="subgroup-end-date" type="date" class="mt-1 w-full rounded-md border-slate-300 p-2 text-xs"></label></div><button class="w-full rounded-md bg-teal-700 py-3 font-bold text-white">Zapisz podgrupę</button></form></dialog>
 
 <!-- JEDNOLITY MODAL WPISU -->
 <dialog id="unified-modal" class="w-[calc(100%-2rem)] max-w-md rounded-2xl border-0 p-0 shadow-2xl">
@@ -571,45 +571,95 @@ const isActiveOn = (item, date) => (!item.startDate || date >= item.startDate) &
 const orderedTasks = tasks => [...tasks].sort((left, right) => left.orderIndex - right.orderIndex || String(left.createdAt || left.id).localeCompare(String(right.createdAt || right.id)));
 const reindexTasks = tasks => orderedTasks(tasks).map((task, index) => ({ ...task, orderIndex: index }));
 
-function subgroupActivationCount(date, group, subgroupId, holidaySet, workdayMap, config) {
-  let activations = 0;
-  for (let cursor = config.start; cursor < date; cursor = addDays(cursor, 1)) {
+const rotationCache = new WeakMap();
+const daysBetween = (from, to) => Math.round((new Date(to + 'T12:00:00') - new Date(from + 'T12:00:00')) / 86400000);
+// Dzień odniesienia licznika "dni po": stoi w dniu pauzy i nie rośnie o dni trwania pauzy.
+const lateReferenceDate = (group, current) => addDays(group.paused && group.pausedOn ? group.pausedOn : current, -(group.pauseOffset || 0));
+
+// Zamrożona zaległość z zapisu pauzy; null, gdy zadanie lub podgrupa już nie istnieje.
+function resolvePendingItem(group, ref) {
+  const subgroup = group.subgroups.find(s => s.id === ref.subgroupId);
+  if (!subgroup) return null;
+  const tasks = subgroup.tasks || [];
+  const task = tasks.length ? tasks.find(t => t.id === ref.taskId) : (ref.taskId === `${subgroup.id}-single` ? { id: ref.taskId, name: subgroup.name, url: subgroup.url || '', fallback: true } : null);
+  if (!task) return null;
+  return { group, subgroup, task, subgroupIndex: 0, subgroupCount: ref.subgroupCount || 1, taskIndex: 0, taskCount: ref.taskCount || 1, frozen: true };
+}
+
+// Zaległości grupy (z dzisiejszymi) do zapisu przy pauzie; ukończone przed dziś są pomijane.
+function snapshotGroupPending(gid, groups, holidays, config, completions) {
+  const current = today(), holidaySet = new Set();
+  holidays.forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
+  const compMap = new Map(completions.map(c => [c.id, c.done])), completionRecords = new Map(completions.map(c => [c.id, c]));
+  const refs = [];
+  getRotationPlan(groups, holidaySet, config).byDate.forEach((items, date) => {
+    if (date > current) return;
+    items.filter(item => item.group.id === gid).forEach(item => {
+      const rec = completionRecords.get(completionKey(date, gid, item.task.id)) || completionRecords.get(completionKey(date, gid));
+      if (isTaskCompleted(compMap, date, gid, item.task.id) && rec?.completedDate !== current) return;
+      refs.push({ date, subgroupId: item.subgroup.id, taskId: item.task.id, subgroupCount: item.subgroupCount, taskCount: item.taskCount });
+    });
+  });
+  return refs;
+}
+
+// Symulacja rotacji w przód (cache na holidaySet + groups + config): plan dni i wystąpienia podgrup jednorazowych.
+function buildRotationPlan(groups, holidaySet, config) {
+  const byDate = new Map(), activations = new Map(), onceOccurrences = new Map();
+  const groupList = groups.map(normalized);
+  let turn = 0;
+  for (let cursor = config.start; cursor <= config.end; cursor = addDays(cursor, 1)) {
     if (holidaySet.has(cursor)) continue;
-    const turn = workdayMap.get(cursor);
-    const activeSubgroups = group.subgroups.filter(subgroup => isActiveOn(subgroup, cursor));
-    if (turn !== undefined && activeSubgroups.length && activeSubgroups[turn % activeSubgroups.length].id === subgroupId) activations++;
+    const dayTurn = turn++, dayItems = [];
+    groupList.forEach(group => {
+      if (group.active === false || group.paused || !group.subgroups.length) return;
+      // Podgrupa jednorazowa wypada z rotacji po wyczerpaniu wszystkich odcinków (bez restartu cyklu).
+      const subgroups = group.subgroups.filter(sg => isActiveOn(sg, cursor) && !(sg.repeatMode === 'once' && (activations.get(sg.id) || 0) >= Math.max(1, (sg.tasks || []).length)));
+      if (!subgroups.length) return;
+      const subgroup = subgroups[dayTurn % subgroups.length];
+      const activationNo = activations.get(subgroup.id) || 0;
+      activations.set(subgroup.id, activationNo + 1);
+      const activeTasks = orderedTasks((subgroup.tasks || []).filter(task => isActiveOn(task, cursor)));
+      const tasks = subgroup.tasks && subgroup.tasks.length ? activeTasks : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
+      if (!tasks.length) return;
+      const taskIndex = activationNo % tasks.length, task = tasks[taskIndex];
+      dayItems.push({ group, subgroup, task, subgroupIndex: dayTurn % subgroups.length, subgroupCount: subgroups.length, taskIndex, taskCount: tasks.length });
+      if (subgroup.repeatMode === 'once') {
+        if (!onceOccurrences.has(subgroup.id)) onceOccurrences.set(subgroup.id, []);
+        onceOccurrences.get(subgroup.id).push({ date: cursor, groupId: group.id, taskId: task.id });
+      }
+    });
+    if (dayItems.length) byDate.set(cursor, dayItems);
   }
-  return activations;
+  // Zamrożone zaległości wstrzymanych grup wchodzą do planu dat, nie wpływają na licznik rotacji.
+  groupList.forEach(group => (group.pendingOverdue || []).forEach(ref => {
+    const item = resolvePendingItem(group, ref);
+    if (!item) return;
+    const list = byDate.get(ref.date) || [];
+    if (!list.some(x => x.group.id === group.id && x.task.id === item.task.id)) list.push(item);
+    byDate.set(ref.date, list);
+  }));
+  return { byDate, onceOccurrences };
+}
+
+function getRotationPlan(groups, holidaySet, config) {
+  const cached = rotationCache.get(holidaySet);
+  if (cached && cached.groups === groups && cached.config === config) return cached.plan;
+  const plan = buildRotationPlan(groups, holidaySet, config);
+  rotationCache.set(holidaySet, { groups, config, plan });
+  return plan;
+}
+
+// Podgrupa jednorazowa jest zakończona, gdy wykonano wszystkie jej odcinki.
+function isOnceFinished(plan, subgroup, compMap) {
+  if (subgroup.repeatMode !== 'once') return false;
+  const occurrences = plan.onceOccurrences.get(subgroup.id) || [];
+  return occurrences.length >= Math.max(1, (subgroup.tasks || []).length) && occurrences.every(o => isTaskCompleted(compMap, o.date, o.groupId, o.taskId));
 }
 
 function fastNestedPlan(date, groups, holidaySet, workdayMap, config) {
-  if (!groups || !groups.length) return [];
-  if (date < config.start || date > config.end || holidaySet.has(date)) return [];
-  const turn = workdayMap.get(date);
-  if (turn === undefined) return [];
-
-  const result = [];
-  groups.map(normalized).forEach(group => {
-    if (group.active === false || !group.subgroups || !group.subgroups.length) return;
-    const activeSubgroups = group.subgroups.filter(sg => isActiveOn(sg, date));
-    const subgroups = activeSubgroups;
-    if (!subgroups.length) return;
-
-    const subgroupIndex = turn % subgroups.length;
-    const subgroup = subgroups[subgroupIndex];
-    if (!subgroup) return;
-
-    const activeTasks = orderedTasks((subgroup.tasks || []).filter(task => isActiveOn(task, date)));
-    const tasks = subgroup.tasks && subgroup.tasks.length ? activeTasks : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
-    if (!tasks.length) return;
-
-    const taskIndex = subgroupActivationCount(date, group, subgroup.id, holidaySet, workdayMap, config) % tasks.length;
-    const task = tasks[taskIndex];
-    if (!task) return;
-
-    result.push({ group, subgroup, task, subgroupIndex, subgroupCount: subgroups.length, taskIndex, taskCount: tasks.length });
-  });
-  return result;
+  if (!groups || !groups.length || holidaySet.has(date) || !workdayMap.has(date)) return [];
+  return getRotationPlan(groups, holidaySet, config).byDate.get(date) || [];
 }
 
 function getOverdueTasks(groups, holidays, config, completions) {
@@ -981,13 +1031,21 @@ async function renderTodayV2() {
   }
   const backlogSummaryEl = $('#backlog-summary'); if (backlogSummaryEl) backlogSummaryEl.textContent = `⚠️ Zaległe zadania (${overdue.length})`;
 
-  const renderBacklogCard = item => {
-    const daysLate = Math.round((new Date(current + 'T12:00:00') - new Date(item.date + 'T12:00:00')) / 86400000);
+  // Etykieta bez powtórzeń (np. "Kalendarz · Kalendarz" -> "Kalendarz"), bez wielkości liter.
+  const joinTitle = (segments, separator) => {
+    const seen = new Set();
+    return segments.filter(s => { const key = s.text.trim().toLowerCase(); if (!key || seen.has(key)) return false; seen.add(key); return true; }).map(s => s.html).join(separator);
+  };
+
+  const renderBacklogCard = (item, showGroup = true) => {
+    const daysLate = daysBetween(item.date, item.frozen ? lateReferenceDate(item.group, current) : current);
     const lateBadge = daysLate === 1 ? '1 dzień po' : `${daysLate} dni po`;
     const cycle = window.getScheduleSubtitle(item.date, { repeatUnit: 'days', repeatInterval: item.subgroupCount * item.taskCount, isRotation: true }, item.subgroup);
-    const subgroup = item.subgroup.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.subgroup.url)}">${html(item.subgroup.name)}</a>` : html(item.subgroup.name);
-    const task = item.task.fallback ? '' : ` · ${item.task.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.task.url)}">${html(item.task.name)}</a>` : html(item.task.name)}`;
-    const hierarchy = `${html(item.group.name)} <span class="text-slate-400">·</span> ${subgroup}${task}`;
+    const segments = [];
+    if (showGroup) segments.push({ text: item.group.name, html: html(item.group.name) });
+    segments.push({ text: item.subgroup.name, html: item.subgroup.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.subgroup.url)}">${html(item.subgroup.name)}</a>` : html(item.subgroup.name) });
+    if (!item.task.fallback) segments.push({ text: item.task.name, html: item.task.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.task.url)}">${html(item.task.name)}</a>` : html(item.task.name) });
+    const hierarchy = joinTitle(segments, ' <span class="text-slate-400">·</span> ');
     return `<label class="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-white p-3 text-sm shadow-sm ${item.completed ? 'opacity-60 bg-slate-50' : ''}">
       <input data-v2-backlog="${item.date}|${item.group.id}|${item.task.id}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${item.completed ? 'checked' : ''}>
       <div class="min-w-0 flex-1">
@@ -1006,12 +1064,16 @@ async function renderTodayV2() {
     </label>`;
   };
   const backlogListEl = $('#backlog-list');
-  if (backlogListEl) backlogListEl.innerHTML = isGrouped ? '' : overdue.map(renderBacklogCard).join('');
+  if (backlogListEl) backlogListEl.innerHTML = isGrouped ? '' : overdue.map(item => renderBacklogCard(item, true)).join('');
 
-  const renderTodayCard = item => {
+  const renderTodayCard = (item, showGroup = true) => {
     const isDone = isTaskCompleted(compMap, current, item.group.id, item.task.id);
     const task = item.task.url ? `<a class="font-bold text-teal-800 underline break-words" target="_blank" href="${html(item.task.url)}">${html(item.task.name)}</a>` : `<b class="font-bold text-slate-900 break-words">${html(item.task.name)}</b>`;
-    const hierarchy = item.task.fallback ? `${html(item.group.name)} <span class="text-slate-400">•</span> ${task}` : `${html(item.group.name)} <span class="text-slate-400">•</span> ${html(item.subgroup.name)} <span class="text-slate-400">•</span> ${task}`;
+    const segments = [];
+    if (showGroup) segments.push({ text: item.group.name, html: html(item.group.name) });
+    if (item.task.fallback) segments.push({ text: item.task.name, html: task });
+    else { segments.push({ text: item.subgroup.name, html: html(item.subgroup.name) }); segments.push({ text: item.task.name, html: task }); }
+    const hierarchy = joinTitle(segments, ' <span class="text-slate-400">•</span> ');
     return `<article class="task-item rounded-xl border bg-white px-3 py-2.5 shadow-sm ${isDone ? 'border-teal-200 opacity-60' : 'border-slate-200'}">
       <div class="flex items-start gap-2">
         <input data-v2-today="${item.group.id}|${item.task.id}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${isDone ? 'checked' : ''}>
@@ -1034,28 +1096,30 @@ async function renderTodayV2() {
   const renderGroupedTasks = () => {
     const entries = new Map();
     const add = (groupId, render) => { if (!entries.has(groupId)) entries.set(groupId, []); entries.get(groupId).push(render); };
-    overdue.forEach(item => add(item.group.id, () => renderBacklogCard(item)));
-    items.forEach(item => add(item.group.id, () => renderTodayCard(item)));
-    return groups.filter(group => entries.has(group.id)).map(group => {
-      const renders = entries.get(group.id), hiddenCount = renders.length - GROUP_TODAY_LIMIT;
+    overdue.forEach(item => add(item.group.id, () => renderBacklogCard(item, false)));
+    items.forEach(item => add(item.group.id, () => renderTodayCard(item, false)));
+    return groups.filter(group => entries.has(group.id) || group.paused).map(group => {
+      const renders = entries.get(group.id) || [], hiddenCount = renders.length - GROUP_TODAY_LIMIT;
+      const pauseTag = group.paused ? '<span class="rounded-md bg-slate-400 px-2 py-0.5 text-[10px] font-extrabold text-white">PAUZA</span>' : '';
       return `<details data-accordion-id="today-group-${html(group.id)}" data-accordion-default="open" class="group-today-acc border rounded-xl overflow-hidden mb-3 bg-white border-slate-200 shadow-sm">
-        <summary class="flex items-center justify-between p-3 bg-slate-50 cursor-pointer select-none">
+        <summary class="flex items-center justify-between p-3 bg-teal-900 text-white cursor-pointer select-none">
           <div class="flex items-center gap-2 min-w-0">
-            <i data-lucide="chevron-right" class="h-4 w-4 text-slate-400 transition-transform details-arrow"></i>
-            <span class="h-3 w-3 rounded-full shrink-0" style="background:${html(group.color || '#0f766e')}"></span>
-            <span class="font-bold text-slate-900 truncate text-sm">${html(group.name)}</span>
-            <span class="text-xs text-slate-400">(${renders.length})</span>
+            <i data-lucide="chevron-right" class="h-4 w-4 text-teal-200 transition-transform details-arrow"></i>
+            <span class="h-3 w-3 rounded-full shrink-0 ring-2 ring-white/70" style="background:${html(group.color || '#0f766e')}"></span>
+            <span class="font-bold text-white truncate text-sm">${html(group.name)}</span>
+            <span class="text-xs text-teal-200">(${renders.length})</span>
+            ${pauseTag}
           </div>
           <div class="flex items-center gap-1.5 shrink-0" onclick="event.stopPropagation()">
-            <button type="button" class="p-1.5 text-slate-500 hover:text-teal-700 hover:bg-slate-200 rounded-lg transition" title="Dodaj podgrupę / zadanie" onclick="openUnifiedModal('task', { groupId: '${html(group.id)}' })">
+            <button type="button" class="p-1.5 text-teal-100 hover:text-white hover:bg-teal-800 rounded-lg transition" title="Dodaj podgrupę / zadanie" onclick="openUnifiedModal('task', { groupId: '${html(group.id)}' })">
               <i data-lucide="plus" class="h-4 w-4"></i>
             </button>
-            <button type="button" class="p-1.5 text-slate-500 hover:text-teal-700 hover:bg-slate-200 rounded-lg transition" title="Edytuj grupę / interwał" onclick="groupModal('${html(group.id)}')">
+            <button type="button" class="p-1.5 text-teal-100 hover:text-white hover:bg-teal-800 rounded-lg transition" title="Edytuj grupę / interwał" onclick="groupModal('${html(group.id)}')">
               <i data-lucide="pencil" class="h-4 w-4"></i>
             </button>
           </div>
         </summary>
-        <div class="space-y-3 p-3">${renders.slice(0, GROUP_TODAY_LIMIT).map(render => render()).join('')}</div>
+        <div class="space-y-3 p-3">${renders.length ? renders.slice(0, GROUP_TODAY_LIMIT).map(render => render()).join('') : '<p class="text-xs text-slate-500">Rotacja wstrzymana. Wznów ją w edycji grupy.</p>'}</div>
         ${hiddenCount > 0 ? `<div class="text-center text-xs text-slate-400 py-2 border-t border-slate-100">+ ${hiddenCount} kolejnych zadań ukrytych</div>` : ''}
       </details>`;
     }).join('');
@@ -1063,7 +1127,8 @@ async function renderTodayV2() {
 
   const todayListEl = $('#today-list');
   if (todayListEl) {
-    todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : items.map(renderTodayCard).join('');
+    const pausedStrip = groups.filter(g => g.paused).map(g => `<span class="rounded-md bg-slate-400 px-2 py-1 text-xs font-extrabold text-white">PAUZA · ${html(g.name)}</span>`).join('');
+    todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : (pausedStrip ? `<div class="mb-3 flex flex-wrap gap-2">${pausedStrip}</div>` : '') + items.map(item => renderTodayCard(item, true)).join('');
     restoreAccordions(todayListEl);
   }
 
@@ -1144,7 +1209,7 @@ async function renderScheduleV2() {
 
     const header = document.createElement('button');
     header.type = 'button';
-    header.className = 'flex w-full items-center justify-between bg-slate-800 px-4 py-3 text-left text-sm font-extrabold text-white cursor-pointer';
+    header.className = 'flex w-full items-center justify-between bg-teal-900 px-4 py-3 text-left text-sm font-extrabold text-white cursor-pointer';
     header.innerHTML = `<span>📅 ${monthLabel}</span><span class="flex items-center gap-2"><span class="month-header-count text-xs font-normal opacity-90"></span><span class="toggle-indicator text-slate-300 transition-transform">${monthOpen ? '▾' : '▸'}</span></span>`;
 
     const content = document.createElement('div');
@@ -1206,34 +1271,44 @@ async function renderScheduleV2() {
 }
 
 async function renderGroupsV2() {
-  const groups = (await all('groups')).map(normalized).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
+  const [groupsRaw, holidays, config, completions] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions')]);
+  const groups = (groupsRaw || []).map(normalized).sort((a, b) => (a.created || '').localeCompare(b.created || ''));
+  const holidaySet = new Set();
+  (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
+  const compMap = new Map((completions || []).map(c => [c.id, c.done]));
+  const rotationPlan = getRotationPlan(groups, holidaySet, config);
+  const onceTag = sg => {
+    if (sg.repeatMode !== 'once') return '';
+    const finished = isOnceFinished(rotationPlan, sg, compMap);
+    return `<span class="ml-1 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold text-white ${finished ? 'bg-emerald-600' : 'bg-amber-600'}">${finished ? 'Zakończona' : 'Jednorazowo'}</span>`;
+  };
   const emptyGroupsEl = $('#empty-groups'); if (emptyGroupsEl) emptyGroupsEl.hidden = !!groups.length;
   const groupsListEl = $('#groups-list');
   if (!groupsListEl) return;
   groupsListEl.innerHTML = groups.map(g => `<details data-accordion-id="edit-group-${g.id}" data-accordion-default="open" class="group-accordion rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden" style="border-color:${g.color}55">
-    <summary class="flex cursor-pointer items-center justify-between p-3.5 select-none transition hover:bg-slate-50" style="background:${g.color}15">
+    <summary class="flex cursor-pointer items-center justify-between bg-teal-900 p-3.5 select-none text-white transition hover:bg-teal-800">
       <div class="flex items-center gap-2.5 min-w-0">
-        <span class="group-chevron text-xs text-slate-500 transition-transform">▾</span>
-        <span class="h-3.5 w-3.5 rounded-full shrink-0" style="background:${g.color}"></span>
-        <h2 class="font-extrabold text-sm text-slate-900 truncate">${html(g.name)}</h2>
-        <span class="text-xs font-semibold text-slate-500">(${g.subgroups.length} ${g.subgroups.length === 1 ? 'podgrupa' : 'podgrup'})</span>
+        <span class="group-chevron text-xs text-teal-200 transition-transform">▾</span>
+        <span class="h-3.5 w-3.5 rounded-full shrink-0 ring-2 ring-white/70" style="background:${g.color}"></span>
+        <h2 class="font-extrabold text-sm text-white truncate">${html(g.name)}</h2>
+        <span class="text-xs font-semibold text-teal-200">(${g.subgroups.length} ${g.subgroups.length === 1 ? 'podgrupa' : 'podgrup'})</span>${g.paused ? ' <span class="rounded-md bg-slate-400 px-2 py-0.5 text-[10px] font-extrabold text-white">PAUZA</span>' : ''}
       </div>
       <div class="flex items-center gap-1 shrink-0" onclick="event.stopPropagation()">
-        <button data-v2-group-edit="${g.id}" title="Edytuj grupę" class="p-1.5 text-teal-700 hover:bg-teal-100/60 rounded-md transition"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-        <button data-v2-group-delete="${g.id}" title="Usuń grupę" class="p-1.5 text-rose-600 hover:bg-rose-100/60 rounded-md transition"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
+        <button data-v2-group-edit="${g.id}" title="Edytuj grupę" class="p-1.5 text-teal-100 hover:bg-teal-800 hover:text-white rounded-md transition"><i data-lucide="pencil" class="h-4 w-4"></i></button>
+        <button data-v2-group-delete="${g.id}" title="Usuń grupę" class="p-1.5 text-rose-200 hover:bg-rose-900/40 rounded-md transition"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
       </div>
     </summary>
     <div class="p-3.5 pt-1 space-y-3 bg-white">
-      ${g.subgroups.map((sg, i) => `<details class="subgroup-acc rounded-xl border" data-subgroup-id="${sg.id}" ${isSubgroupOpen(sg.id) ? 'open' : ''} style="background:${g.color}08; border-color:${g.color}30">
-        <summary class="flex cursor-pointer select-none items-center justify-between gap-2 p-3">
-          <span class="flex min-w-0 items-center gap-1.5 text-xs font-bold text-slate-800"><span class="subgroup-chevron inline-block text-slate-500 transition-transform">▸</span>${i + 1}. ${html(sg.name)}</span>
+      ${g.subgroups.map((sg, i) => `<details class="subgroup-acc overflow-hidden rounded-xl border bg-white" data-subgroup-id="${sg.id}" ${isSubgroupOpen(sg.id) ? 'open' : ''} style="border-color:${g.color}55">
+        <summary class="flex cursor-pointer select-none items-center justify-between gap-2 bg-teal-800 p-3 text-white">
+          <span class="flex min-w-0 items-center gap-1.5 text-xs font-bold text-white"><span class="subgroup-chevron inline-block text-teal-200 transition-transform">▸</span>${i + 1}. ${html(sg.name)}${onceTag(sg)}</span>
           <div class="flex shrink-0 items-center gap-1">
-            <button data-v2-task-add="${g.id}|${sg.id}" title="Dodaj zadanie" class="p-1 text-teal-800 hover:bg-teal-100/80 rounded transition"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
-            <button data-v2-subgroup-edit="${g.id}|${sg.id}" title="Edytuj podgrupę" class="p-1 text-teal-700 hover:bg-teal-100/60 rounded transition"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
-            <button data-v2-subgroup-delete="${g.id}|${sg.id}" title="Usuń podgrupę" class="p-1 text-rose-600 hover:bg-rose-100/60 rounded transition"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
+            <button data-v2-task-add="${g.id}|${sg.id}" title="Dodaj zadanie" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
+            <button data-v2-subgroup-edit="${g.id}|${sg.id}" title="Edytuj podgrupę" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
+            <button data-v2-subgroup-delete="${g.id}|${sg.id}" title="Usuń podgrupę" class="p-1 text-rose-200 hover:bg-rose-900/40 rounded transition"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
           </div>
         </summary>
-        <div class="border-t px-3 pb-3" style="border-color:${g.color}30">
+        <div class="px-3 pb-3 pt-2">
         <ul class="mt-2 space-y-1.5">${orderedTasks(sg.tasks).map((t, ti) => `<li class="flex items-center gap-2 rounded-xl border-l-4 bg-white px-3 py-2 shadow-xs border border-slate-100" style="border-left-color:${g.color}"><span class="text-[11px] font-bold text-slate-400">${ti + 1}</span><b class="min-w-0 flex-1 truncate text-xs text-slate-800">${html(t.name)}</b><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|-1" title="Przenieś w górę" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-up" class="h-3.5 w-3.5"></i></button><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|1" title="Przenieś w dół" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button><button data-v2-task-edit="${g.id}|${sg.id}|${t.id}" title="Edytuj zadanie" class="p-1 text-teal-700 hover:bg-teal-50 rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button><button data-v2-task-delete="${g.id}|${sg.id}|${t.id}" title="Usuń zadanie" class="p-1 text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></li>`).join('') || '<li class="py-1 text-xs text-slate-400">Brak dodatkowych zadań</li>'}</ul>
         </div>
       </details>`).join('')}
@@ -1392,7 +1467,7 @@ async function renderScheduleEvents() {
     const mLabel = new Date(`${mKey}-01T12:00:00`).toLocaleDateString('pl-PL', { month: 'long', year: 'numeric' });
     const evCount = mDates.reduce((tot, d) => tot + (occurrences.get(d) || []).length, 0);
     return `<details data-event-month="${mKey}" data-accordion-id="sched-event-m-${mKey}" class="month-acc mb-3 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <summary class="flex cursor-pointer items-center justify-between bg-slate-800 px-4 py-3 text-left text-sm font-extrabold text-white">
+      <summary class="flex cursor-pointer items-center justify-between bg-teal-900 px-4 py-3 text-left text-sm font-extrabold text-white">
         <span>📅 ${mLabel}</span><span class="text-xs">${evCount} wydarzeń</span>
       </summary>
       <div class="event-month-content flex flex-col gap-2 p-2"></div>
@@ -1585,8 +1660,8 @@ const EVENT_FILTERS = ['all', 'upcoming', 'past', 'urgent'];
 let scheduleFilter = readStored(SCHEDULE_FILTER_KEY, SCHEDULE_FILTERS.map(f => f.value), 'all');
 let scheduleMode = scheduleFilter.startsWith('urgent') ? 'events' : 'tasks', mgmtEventFilter = readStored(EVENT_FILTER_KEY, EVENT_FILTERS, 'all'), isScheduleAllExpanded = false;
 
-async function groupModal(gid) { const g = gid && normalized(await getOne('groups', gid)); $('#group-form').reset(); $('#group-id').value = g?.id || ''; $('#group-name').value = g?.name || ''; $('#group-color').value = g?.color || '#0f766e'; $('#group-modal').showModal(); }
-async function subgroupModal(gid, sid) { const g = normalized(await getOne('groups', gid)), s = sid && g.subgroups.find(x => x.id === sid); $('#subgroup-form').reset(); $('#subgroup-group').value = gid; $('#subgroup-id').value = sid || ''; $('#subgroup-name').value = s?.name || ''; $('#subgroup-url').value = s?.url || ''; $('#subgroup-start-date').value = s?.startDate || today(); $('#subgroup-end-date').value = s?.endDate || ''; $('#subgroup-modal').showModal(); }
+async function groupModal(gid) { const g = gid && normalized(await getOne('groups', gid)); $('#group-form').reset(); $('#group-id').value = g?.id || ''; $('#group-name').value = g?.name || ''; $('#group-color').value = g?.color || '#0f766e'; $('#group-pause-row').hidden = !g; if (g) { $('#group-pause-state').textContent = g.paused ? 'wstrzymana' : 'aktywna'; $('#group-pause-btn').textContent = g.paused ? 'Wznów rotację' : 'Wstrzymaj rotację grupy'; } $('#group-modal').showModal(); }
+async function subgroupModal(gid, sid) { const g = normalized(await getOne('groups', gid)), s = sid && g.subgroups.find(x => x.id === sid); $('#subgroup-form').reset(); $('#subgroup-group').value = gid; $('#subgroup-id').value = sid || ''; $('#subgroup-name').value = s?.name || ''; $('#subgroup-url').value = s?.url || ''; $('#subgroup-start-date').value = s?.startDate || today(); $('#subgroup-end-date').value = s?.endDate || ''; $('#subgroup-repeat').value = s?.repeatMode === 'once' ? 'once' : 'repeat'; $('#subgroup-modal').showModal(); }
 
 window.openUnifiedModal = async function(type = 'task', opts = {}) {
   const form = $('#unified-form');
@@ -1878,10 +1953,30 @@ async function boot() {
     await save('groups', g); $('#group-modal').close(); renderAll();
   };
 
+  $('#group-pause-btn').onclick = async () => {
+    const gid = $('#group-id').value;
+    const g = gid && normalized(await getOne('groups', gid));
+    if (!g) return;
+    const t = today();
+    if (g.paused) {
+      g.pauseOffset = (g.pauseOffset || 0) + daysBetween(g.pausedOn || t, t);
+      g.paused = false; delete g.pausedOn;
+      g.subgroups = g.subgroups.map(s => ({ ...s, startDate: t, tasks: (s.tasks || []).map(k => ({ ...k, startDate: t })) }));
+      say('Rotacja grupy wznowiona od dzisiaj. Zaległości zachowane.');
+    } else {
+      const [groupsRaw, holidays, config, completions] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions')]);
+      const groups = (groupsRaw || []).map(x => x.id === g.id ? g : normalized(x));
+      g.pendingOverdue = snapshotGroupPending(g.id, groups, holidays || [], config, completions || []);
+      g.paused = true; g.pausedOn = t;
+      say('Rotacja grupy wstrzymana. Zaległości zachowane.');
+    }
+    await save('groups', g); $('#group-modal').close(); renderAll();
+  };
+
   $('#subgroup-form').onsubmit = async e => {
     e.preventDefault();
     const g = normalized(await getOne('groups', $('#subgroup-group').value)), sid = $('#subgroup-id').value;
-    const data = { id: sid || uid(), name: $('#subgroup-name').value.trim(), url: $('#subgroup-url').value.trim(), startDate: $('#subgroup-start-date').value, endDate: $('#subgroup-end-date').value, tasks: [] };
+    const data = { id: sid || uid(), name: $('#subgroup-name').value.trim(), url: $('#subgroup-url').value.trim(), startDate: $('#subgroup-start-date').value, endDate: $('#subgroup-end-date').value, repeatMode: $('#subgroup-repeat').value, tasks: [] };
     if (sid) { const ex = g.subgroups.find(s => s.id === sid); data.tasks = ex?.tasks || []; g.subgroups = g.subgroups.map(s => s.id === sid ? data : s); } else g.subgroups.push(data);
     await save('groups', g); $('#subgroup-modal').close(); renderAll();
   };
