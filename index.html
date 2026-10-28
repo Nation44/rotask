@@ -596,7 +596,7 @@ function snapshotGroupPending(gid, groups, holidays, config, completions) {
     if (date > current) return;
     items.filter(item => item.group.id === gid).forEach(item => {
       const rec = completionRecords.get(completionKey(date, gid, item.task.id)) || completionRecords.get(completionKey(date, gid));
-      if (isTaskCompleted(compMap, date, gid, item.task.id) && rec?.completedDate !== current) return;
+      if (date < current && isTaskCompleted(compMap, date, gid, item.task.id) && rec?.completedDate !== current) return;
       refs.push({ date, subgroupId: item.subgroup.id, taskId: item.task.id, subgroupCount: item.subgroupCount, taskCount: item.taskCount });
     });
   });
@@ -1018,18 +1018,20 @@ async function renderTodayV2() {
 
   const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config);
   const overdue = getOverdueTasks(groups, holidays, config, completions);
+  // Zaległości wstrzymanych grup są zawsze w głównej liście, poza zwijanym panelem.
+  const pausedOverdue = overdue.filter(item => item.group.paused), activeOverdue = overdue.filter(item => !item.group.paused);
 
   const holidayNoteEl = $('#holiday-note'); if (holidayNoteEl) holidayNoteEl.hidden = !holidaySet.has(current);
-  const emptyTodayEl = $('#empty-today'); if (emptyTodayEl) emptyTodayEl.hidden = holidaySet.has(current) || items.length > 0;
+  const emptyTodayEl = $('#empty-today'); if (emptyTodayEl) emptyTodayEl.hidden = holidaySet.has(current) || items.length > 0 || pausedOverdue.length > 0;
   const summaryEl = $('#summary');
   if (summaryEl) summaryEl.innerHTML = holidaySet.has(current) ? '<b>📋 Zadania</b><span class="text-sm font-bold text-teal-300">Dzień wolny</span>' : `<b>📋 Zadania dziś</b><span class="text-sm font-bold text-teal-300">${items.filter(i => isTaskCompleted(compMap, current, i.group.id, i.task.id)).length} z ${items.length} wykonane</span>`;
 
   const backlogPanel = $('#backlog-panel');
   if (backlogPanel) {
-    backlogPanel.hidden = isGrouped || !overdue.length;
-    if (overdue.length) backlogPanel.open = accordionOpen(backlogPanel);
+    backlogPanel.hidden = isGrouped || !activeOverdue.length;
+    if (activeOverdue.length) backlogPanel.open = accordionOpen(backlogPanel);
   }
-  const backlogSummaryEl = $('#backlog-summary'); if (backlogSummaryEl) backlogSummaryEl.textContent = `⚠️ Zaległe zadania (${overdue.length})`;
+  const backlogSummaryEl = $('#backlog-summary'); if (backlogSummaryEl) backlogSummaryEl.textContent = `⚠️ Zaległe zadania (${activeOverdue.length})`;
 
   // Etykieta bez powtórzeń (np. "Kalendarz · Kalendarz" -> "Kalendarz"), bez wielkości liter.
   const joinTitle = (segments, separator) => {
@@ -1064,7 +1066,7 @@ async function renderTodayV2() {
     </label>`;
   };
   const backlogListEl = $('#backlog-list');
-  if (backlogListEl) backlogListEl.innerHTML = isGrouped ? '' : overdue.map(item => renderBacklogCard(item, true)).join('');
+  if (backlogListEl) backlogListEl.innerHTML = isGrouped ? '' : activeOverdue.map(item => renderBacklogCard(item, true)).join('');
 
   const renderTodayCard = (item, showGroup = true) => {
     const isDone = isTaskCompleted(compMap, current, item.group.id, item.task.id);
@@ -1099,7 +1101,7 @@ async function renderTodayV2() {
     overdue.forEach(item => add(item.group.id, () => renderBacklogCard(item, false)));
     items.forEach(item => add(item.group.id, () => renderTodayCard(item, false)));
     return groups.filter(group => entries.has(group.id) || group.paused).map(group => {
-      const renders = entries.get(group.id) || [], hiddenCount = renders.length - GROUP_TODAY_LIMIT;
+      const renders = entries.get(group.id) || [], limit = group.paused ? Infinity : GROUP_TODAY_LIMIT, hiddenCount = renders.length - limit;
       const pauseTag = group.paused ? '<span class="rounded-md bg-slate-400 px-2 py-0.5 text-[10px] font-extrabold text-white">PAUZA</span>' : '';
       return `<details data-accordion-id="today-group-${html(group.id)}" data-accordion-default="open" class="group-today-acc border rounded-xl overflow-hidden mb-3 bg-white border-slate-200 shadow-sm">
         <summary class="flex items-center justify-between p-3 bg-teal-900 text-white cursor-pointer select-none">
@@ -1119,7 +1121,7 @@ async function renderTodayV2() {
             </button>
           </div>
         </summary>
-        <div class="space-y-3 p-3">${renders.length ? renders.slice(0, GROUP_TODAY_LIMIT).map(render => render()).join('') : '<p class="text-xs text-slate-500">Rotacja wstrzymana. Wznów ją w edycji grupy.</p>'}</div>
+        <div class="space-y-3 p-3">${renders.length ? renders.slice(0, limit).map(render => render()).join('') : '<p class="text-xs text-slate-500">Rotacja wstrzymana. Wznów ją w edycji grupy.</p>'}</div>
         ${hiddenCount > 0 ? `<div class="text-center text-xs text-slate-400 py-2 border-t border-slate-100">+ ${hiddenCount} kolejnych zadań ukrytych</div>` : ''}
       </details>`;
     }).join('');
@@ -1128,7 +1130,7 @@ async function renderTodayV2() {
   const todayListEl = $('#today-list');
   if (todayListEl) {
     const pausedStrip = groups.filter(g => g.paused).map(g => `<span class="rounded-md bg-slate-400 px-2 py-1 text-xs font-extrabold text-white">PAUZA · ${html(g.name)}</span>`).join('');
-    todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : (pausedStrip ? `<div class="mb-3 flex flex-wrap gap-2">${pausedStrip}</div>` : '') + items.map(item => renderTodayCard(item, true)).join('');
+    todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : (pausedStrip ? `<div class="mb-3 flex flex-wrap gap-2">${pausedStrip}</div>` : '') + pausedOverdue.map(item => renderBacklogCard(item, true)).join('') + items.map(item => renderTodayCard(item, true)).join('');
     restoreAccordions(todayListEl);
   }
 
