@@ -603,6 +603,21 @@ function snapshotGroupPending(gid, groups, holidays, config, completions) {
   return refs;
 }
 
+// Niewykonane zadania wstrzymanej grupy wzięte wprost z jej podgrup; data = dzień pauzy (zamrożona).
+function pausedPoolItems(group, completions, current) {
+  const date = group.pausedOn || current, doneEver = new Set(), doneToday = new Set(), items = [];
+  completions.forEach(c => { if (c.groupId === group.id && c.done) { doneEver.add(c.taskId); if (c.completedDate === current) doneToday.add(c.taskId); } });
+  group.subgroups.forEach(subgroup => {
+    if (!isActiveOn(subgroup, date)) return;
+    const tasks = subgroup.tasks && subgroup.tasks.length ? subgroup.tasks.filter(t => isActiveOn(t, date)) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
+    tasks.forEach(task => {
+      if (doneEver.has(task.id) && !doneToday.has(task.id)) return;
+      items.push({ date, group, subgroup, task, subgroupIndex: 0, subgroupCount: group.subgroups.length, taskIndex: 0, taskCount: tasks.length, frozen: true, completed: doneToday.has(task.id) });
+    });
+  });
+  return items;
+}
+
 // Symulacja rotacji w przód (cache na holidaySet + groups + config): plan dni i wystąpienia podgrup jednorazowych.
 function buildRotationPlan(groups, holidaySet, config) {
   const byDate = new Map(), activations = new Map(), onceOccurrences = new Map();
@@ -1018,6 +1033,8 @@ async function renderTodayV2() {
 
   const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config);
   const overdue = getOverdueTasks(groups, holidays, config, completions);
+  const pausedSeen = new Set(overdue.concat(items).filter(i => i.group.paused).map(i => `${i.group.id}|${i.task.id}`));
+  groups.filter(g => g.paused).forEach(g => pausedPoolItems(g, completions || [], current).forEach(i => { if (!pausedSeen.has(`${i.group.id}|${i.task.id}`)) overdue.push(i); }));
   // Zaległości wstrzymanych grup są zawsze w głównej liście, poza zwijanym panelem.
   const pausedOverdue = overdue.filter(item => item.group.paused), activeOverdue = overdue.filter(item => !item.group.paused);
 
