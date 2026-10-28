@@ -586,23 +586,6 @@ function resolvePendingItem(group, ref) {
   return { group, subgroup, task, subgroupIndex: 0, subgroupCount: ref.subgroupCount || 1, taskIndex: 0, taskCount: ref.taskCount || 1, frozen: true };
 }
 
-// Zaległości grupy (z dzisiejszymi) do zapisu przy pauzie; ukończone przed dziś są pomijane.
-function snapshotGroupPending(gid, groups, holidays, config, completions) {
-  const current = today(), holidaySet = new Set();
-  holidays.forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
-  const compMap = new Map(completions.map(c => [c.id, c.done])), completionRecords = new Map(completions.map(c => [c.id, c]));
-  const refs = [];
-  getRotationPlan(groups, holidaySet, config).byDate.forEach((items, date) => {
-    if (date > current) return;
-    items.filter(item => item.group.id === gid).forEach(item => {
-      const rec = completionRecords.get(completionKey(date, gid, item.task.id)) || completionRecords.get(completionKey(date, gid));
-      if (date < current && isTaskCompleted(compMap, date, gid, item.task.id) && rec?.completedDate !== current) return;
-      refs.push({ date, subgroupId: item.subgroup.id, taskId: item.task.id, subgroupCount: item.subgroupCount, taskCount: item.taskCount });
-    });
-  });
-  return refs;
-}
-
 // Niewykonane zadania wstrzymanej grupy wzięte wprost z jej podgrup; data = dzień pauzy (zamrożona).
 function pausedPoolItems(group, completions, current) {
   const date = group.pausedOn || current, doneEver = new Set(), doneToday = new Set(), items = [];
@@ -646,8 +629,8 @@ function buildRotationPlan(groups, holidaySet, config) {
     });
     if (dayItems.length) byDate.set(cursor, dayItems);
   }
-  // Zamrożone zaległości wstrzymanych grup wchodzą do planu dat, nie wpływają na licznik rotacji.
-  groupList.forEach(group => (group.pendingOverdue || []).forEach(ref => {
+  // Zaległości wznowionych grup wchodzą do planu dat; wstrzymane mają pulę z podgrup (pausedPoolItems).
+  groupList.forEach(group => (group.paused ? [] : group.pendingOverdue || []).forEach(ref => {
     const item = resolvePendingItem(group, ref);
     if (!item) return;
     const list = byDate.get(ref.date) || [];
@@ -871,7 +854,7 @@ async function plannerTaskSources() {
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
   const todayItems = fastNestedPlan(current, groups, holidaySet, workdayMap, config).map(item => ({ ...item, date: current }));
-  const overdueItems = getOverdueTasks(groups, holidays || [], config, completions || []);
+  const overdueItems = [...getOverdueTasks(groups, holidays || [], config, completions || []), ...groups.filter(g => g.paused).flatMap(g => pausedPoolItems(g, completions || [], current))];
   return groups
     .map(group => ({ group, items: [...overdueItems, ...todayItems].filter(item => item.group.id === group.id).slice(0, 5) }))
     .filter(entry => entry.items.length);
@@ -1033,8 +1016,7 @@ async function renderTodayV2() {
 
   const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config);
   const overdue = getOverdueTasks(groups, holidays, config, completions);
-  const pausedSeen = new Set(overdue.concat(items).filter(i => i.group.paused).map(i => `${i.group.id}|${i.task.id}`));
-  groups.filter(g => g.paused).forEach(g => pausedPoolItems(g, completions || [], current).forEach(i => { if (!pausedSeen.has(`${i.group.id}|${i.task.id}`)) overdue.push(i); }));
+  groups.filter(g => g.paused).forEach(g => overdue.push(...pausedPoolItems(g, completions || [], current)));
   // Zaległości wstrzymanych grup są zawsze w głównej liście, poza zwijanym panelem.
   const pausedOverdue = overdue.filter(item => item.group.paused), activeOverdue = overdue.filter(item => !item.group.paused);
 
@@ -1978,14 +1960,13 @@ async function boot() {
     if (!g) return;
     const t = today();
     if (g.paused) {
+      const completions = (await all('completions')) || [];
+      g.pendingOverdue = pausedPoolItems(g, completions, t).map(i => ({ date: i.date, subgroupId: i.subgroup.id, taskId: i.task.id, subgroupCount: i.subgroupCount, taskCount: i.taskCount }));
       g.pauseOffset = (g.pauseOffset || 0) + daysBetween(g.pausedOn || t, t);
       g.paused = false; delete g.pausedOn;
       g.subgroups = g.subgroups.map(s => ({ ...s, startDate: t, tasks: (s.tasks || []).map(k => ({ ...k, startDate: t })) }));
       say('Rotacja grupy wznowiona od dzisiaj. Zaległości zachowane.');
     } else {
-      const [groupsRaw, holidays, config, completions] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions')]);
-      const groups = (groupsRaw || []).map(x => x.id === g.id ? g : normalized(x));
-      g.pendingOverdue = snapshotGroupPending(g.id, groups, holidays || [], config, completions || []);
       g.paused = true; g.pausedOn = t;
       say('Rotacja grupy wstrzymana. Zaległości zachowane.');
     }
