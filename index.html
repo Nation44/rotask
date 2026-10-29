@@ -563,7 +563,7 @@ function normalized(group) {
       url: s.url || '',
       startDate: s.startDate || '',
       endDate: s.endDate || '',
-      tasks: Array.isArray(s.tasks) ? s.tasks.map((t, index) => ({ ...t, startDate: t.startDate || '', endDate: t.endDate || '', orderIndex: Number.isFinite(Number(t.orderIndex)) ? Number(t.orderIndex) : index })) : []
+      tasks: Array.isArray(s.tasks) ? s.tasks.map(({ startDate, endDate, ...t }, index) => ({ ...t, orderIndex: Number.isFinite(Number(t.orderIndex)) ? Number(t.orderIndex) : index })) : []
     }))
   };
 }
@@ -650,61 +650,94 @@ function mergePausedPool(overdue, groups, completions, current) {
   return overdue;
 }
 
-// Symulacja rotacji w przód (cache na holidaySet + groups + config).
-// Tempo ustala Grupa Główna (`interval`): co N dni jedno zadanie z kolejki podgrup, po kolei.
-function buildRotationPlan(groups, holidaySet, config) {
-  const byDate = new Map(), onceOccurrences = new Map();
+// Stan wykonania z trwałych wpisów: wykonane wystąpienia zadania oraz dni zajęte przez wykonane wystąpienia.
+function completionState(completions) {
+  const counts = new Map(), slots = new Set(), records = [];
+  (completions || []).forEach(c => {
+    if (!c.done || !c.taskId || !c.date) return;
+    const key = `${c.groupId}|${c.taskId}`;
+    counts.set(key, (counts.get(key) || 0) + 1);
+    slots.add(`${c.groupId}|${c.date}`);
+    records.push(c);
+  });
+  return { counts, slots, records };
+}
+
+function subgroupTasks(subgroup) {
+  return subgroup.tasks && subgroup.tasks.length ? orderedTasks(subgroup.tasks) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
+}
+
+// Plan rotacji: co `interval` dni Grupa Główna obsadza slot jednym niewykonanym zadaniem.
+// Wykonane wystąpienia zajmują swój dzień planu, więc zmiana stanu nie przesuwa pozostałych terminów.
+function buildRotationPlan(groups, holidaySet, config, completions) {
+  const { counts, slots, records } = completionState(completions);
+  const byDate = new Map(), doneByDate = new Map(), finishedOnce = new Set(), emitted = new Map(), lookup = new Map();
   const groupList = groups.map(normalized);
-  const states = new Map(groupList.map(group => [group.id, { next: groupAnchor(group, config), turn: 0, activations: new Map() }]));
+  const occurrences = (group, task) => { const key = `${group.id}|${task.id}`; return (counts.get(key) || 0) + (emitted.get(key) || 0); };
+  const ahead = (a, b) => a.level - b.level || a.taskIndex - b.taskIndex || a.sgIndex - b.sgIndex;
+  // Wyrównanie poziomów: najniższa runda, potem pozycja w podgrupie, potem kolejność podgrup.
+  const pickPending = (group, cursor) => {
+    let best = null;
+    group.subgroups.forEach((subgroup, sgIndex) => {
+      if (isPausedOn(subgroup, cursor) || !isActiveOn(subgroup, cursor)) return;
+      const tasks = subgroupTasks(subgroup), levels = tasks.map(task => occurrences(group, task));
+      const round = subgroup.repeatMode === 'once' ? 0 : Math.min(...levels);
+      tasks.forEach((task, taskIndex) => {
+        if (levels[taskIndex] !== round) return;
+        const candidate = { subgroup, task, taskIndex, taskCount: tasks.length, level: levels[taskIndex], sgIndex };
+        if (!best || ahead(candidate, best) < 0) best = candidate;
+      });
+    });
+    return best;
+  };
+  const groupStates = new Map(groupList.map(group => [group.id, groupAnchor(group, config)]));
   for (let cursor = config.start; cursor <= config.end; cursor = addDays(cursor, 1)) {
     if (holidaySet.has(cursor)) continue;
     const dayItems = [];
     groupList.forEach(group => {
-      const state = states.get(group.id), count = group.subgroups.length;
-      if (group.active === false || !count || isPausedOn(group, cursor) || cursor < state.next) return;
-      state.next = addDays(cursor, groupInterval(group));
-      // Pierwsza po kolei podgrupa aktywna, niewstrzymana i z pozostałymi odcinkami dostaje slot.
-      for (let step = 0; step < count; step++) {
-        const index = (state.turn + step) % count, subgroup = group.subgroups[index];
-        if (isPausedOn(subgroup, cursor) || !isActiveOn(subgroup, cursor)) continue;
-        const tasks = subgroup.tasks && subgroup.tasks.length ? orderedTasks(subgroup.tasks) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
-        const activations = state.activations.get(subgroup.id) || 0;
-        // Podgrupa jednorazowa wypada z kolejki po wykonaniu wszystkich odcinków (bez restartu cyklu).
-        if (subgroup.repeatMode === 'once' && activations >= tasks.length) continue;
-        const taskIndex = activations % tasks.length, task = tasks[taskIndex];
-        state.activations.set(subgroup.id, activations + 1);
-        state.turn = (index + 1) % count;
-        dayItems.push({ group, subgroup, task, taskIndex, taskCount: tasks.length, cycleDays: groupCycleDays(group) });
-        if (subgroup.repeatMode === 'once') {
-          if (!onceOccurrences.has(subgroup.id)) onceOccurrences.set(subgroup.id, []);
-          onceOccurrences.get(subgroup.id).push({ date: cursor, groupId: group.id, taskId: task.id });
-        }
-        break;
-      }
+      if (group.active === false || !group.subgroups.length || isPausedOn(group, cursor) || cursor < groupStates.get(group.id)) return;
+      groupStates.set(group.id, addDays(cursor, groupInterval(group)));
+      if (slots.has(`${group.id}|${cursor}`)) return;
+      const pick = pickPending(group, cursor);
+      if (!pick) return;
+      const key = `${group.id}|${pick.task.id}`;
+      emitted.set(key, (emitted.get(key) || 0) + 1);
+      dayItems.push({ group, subgroup: pick.subgroup, task: pick.task, taskIndex: pick.taskIndex, taskCount: pick.taskCount, cycleDays: groupCycleDays(group) });
     });
     if (dayItems.length) byDate.set(cursor, dayItems);
   }
-  return { byDate, onceOccurrences };
+  groupList.forEach(group => group.subgroups.forEach(subgroup => {
+    const tasks = subgroupTasks(subgroup);
+    tasks.forEach((task, taskIndex) => lookup.set(`${group.id}|${task.id}`, { group, subgroup, task, taskIndex, taskCount: tasks.length, cycleDays: groupCycleDays(group) }));
+    if (subgroup.repeatMode === 'once' && tasks.every(task => (counts.get(`${group.id}|${task.id}`) || 0) > 0)) finishedOnce.add(subgroup.id);
+  }));
+  records.forEach(c => {
+    const item = lookup.get(`${c.groupId}|${c.taskId}`);
+    // Wstrzymane węzły pokazuje pula wstrzymanych, więc nie dublujemy ich w planie.
+    if (!item || item.group.paused || item.subgroup.paused) return;
+    if (!doneByDate.has(c.date)) doneByDate.set(c.date, []);
+    doneByDate.get(c.date).push(item);
+  });
+  return { byDate, doneByDate, finishedOnce };
 }
 
-function getRotationPlan(groups, holidaySet, config) {
+function getRotationPlan(groups, holidaySet, config, completions) {
   const cached = rotationCache.get(holidaySet);
-  if (cached && cached.groups === groups && cached.config === config) return cached.plan;
-  const plan = buildRotationPlan(groups, holidaySet, config);
-  rotationCache.set(holidaySet, { groups, config, plan });
+  if (cached && cached.groups === groups && cached.config === config && cached.completions === completions) return cached.plan;
+  const plan = buildRotationPlan(groups, holidaySet, config, completions);
+  rotationCache.set(holidaySet, { groups, config, completions, plan });
   return plan;
 }
 
-// Podgrupa jednorazowa jest zakończona, gdy wykonano wszystkie jej odcinki.
-function isOnceFinished(plan, subgroup, compMap) {
-  if (subgroup.repeatMode !== 'once') return false;
-  const occurrences = plan.onceOccurrences.get(subgroup.id) || [];
-  return occurrences.length >= Math.max(1, (subgroup.tasks || []).length) && occurrences.every(o => isTaskCompleted(compMap, o.date, o.groupId, o.taskId));
+// Podgrupa jednorazowa jest zakończona, gdy wykonano wszystkie jej zadania.
+function isOnceFinished(plan, subgroup) {
+  return plan.finishedOnce.has(subgroup.id);
 }
 
-function fastNestedPlan(date, groups, holidaySet, workdayMap, config) {
+function fastNestedPlan(date, groups, holidaySet, workdayMap, config, completions) {
   if (!groups || !groups.length || holidaySet.has(date) || !workdayMap.has(date)) return [];
-  return getRotationPlan(groups, holidaySet, config).byDate.get(date) || [];
+  const plan = getRotationPlan(groups, holidaySet, config, completions);
+  return [...(plan.byDate.get(date) || []), ...(plan.doneByDate.get(date) || [])];
 }
 
 function getOverdueTasks(groups, holidays, config, completions) {
@@ -720,7 +753,7 @@ function getOverdueTasks(groups, holidays, config, completions) {
   const overdue = [];
   for (let d = config.start; d < current; d = addDays(d, 1)) {
     if (holidaySet.has(d)) continue;
-    fastNestedPlan(d, groups, holidaySet, workdayMap, config).forEach(item => {
+    fastNestedPlan(d, groups, holidaySet, workdayMap, config, completions).forEach(item => {
       const fullKey = completionKey(d, item.group.id, item.task.id);
       const legacyKey = completionKey(d, item.group.id);
       const rec = completionRecords.get(fullKey) || completionRecords.get(legacyKey);
@@ -900,7 +933,7 @@ async function plannerTaskSources() {
   (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
-  const todayItems = fastNestedPlan(current, groups, holidaySet, workdayMap, config).map(item => ({ ...item, date: current }));
+  const todayItems = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions || []).map(item => ({ ...item, date: current }));
   const overdueItems = mergePausedPool(getOverdueTasks(groups, holidays || [], config, completions || []), groups, completions || [], current);
   return groups
     .map(group => ({ group, items: [...overdueItems, ...todayItems].filter(item => item.group.id === group.id).slice(0, 5) }))
@@ -1061,7 +1094,7 @@ async function renderTodayV2() {
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
 
-  const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config);
+  const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions);
   const overdue = getOverdueTasks(groups, holidays, config, completions);
   // Wstrzymane grupy lub podgrupy: zaległości z planu zostają, brakujące zadania dopełnia pula.
   mergePausedPool(overdue, groups, completions || [], current);
@@ -1185,7 +1218,7 @@ async function renderTodayV2() {
   $$('[data-v2-today]').forEach(input => input.onchange = async () => {
     const [groupId, taskId] = input.dataset.v2Today.split('|');
     const checked = input.checked;
-    await save('completions', { id: completionKey(current, groupId, taskId), date: current, groupId, taskId, done: checked });
+    await save('completions', { id: completionKey(current, groupId, taskId), date: current, groupId, taskId, done: checked, completedAt: checked ? new Date().toISOString() : undefined });
     const card = input.closest('article');
     if (card) {
       card.classList.toggle('opacity-60', checked);
@@ -1198,7 +1231,7 @@ async function renderTodayV2() {
   $$('[data-v2-backlog]').forEach(input => input.onchange = async () => {
     const [date, groupId, taskId] = input.dataset.v2Backlog.split('|');
     const checked = input.checked, currentDay = today();
-    await save('completions', { id: completionKey(date, groupId, taskId), date, groupId, taskId, done: checked, completedDate: checked ? currentDay : undefined });
+    await save('completions', { id: completionKey(date, groupId, taskId), date, groupId, taskId, done: checked, completedDate: checked ? currentDay : undefined, completedAt: checked ? new Date().toISOString() : undefined });
     const label = input.closest('label');
     if (label) {
       label.classList.toggle('opacity-60', checked);
@@ -1238,7 +1271,7 @@ async function renderScheduleV2() {
   const currentDate = today(), taskFilter = scheduleFilter.startsWith('urgent') ? 'all' : scheduleFilter;
   const doneDates = new Set((completions || []).filter(c => c.done).map(c => c.date));
   if (taskFilter === 'future') dates = dates.filter(d => d >= currentDate);
-  if (taskFilter === 'overdue') dates = dates.filter(d => d < currentDate && fastNestedPlan(d, groups, holidaySet, workdayMap, config).some(i => !isTaskCompleted(compMap, d, i.group.id, i.task.id)));
+  if (taskFilter === 'overdue') dates = dates.filter(d => d < currentDate && fastNestedPlan(d, groups, holidaySet, workdayMap, config, completions).some(i => !isTaskCompleted(compMap, d, i.group.id, i.task.id)));
   if (taskFilter === 'done') dates = dates.filter(d => doneDates.has(d));
 
   const rangeInfoEl = $('#range-info'); if (rangeInfoEl) rangeInfoEl.textContent = `${dates.length} dni: ${config.start} - ${config.end}`;
@@ -1268,7 +1301,7 @@ async function renderScheduleV2() {
     const renderMonthContent = () => {
       let totalTasks = 0;
       content.innerHTML = monthDates.map(date => {
-        const free = holidaySet.has(date), items = fastNestedPlan(date, groups, holidaySet, workdayMap, config).filter(i => taskFilter !== 'done' || isTaskCompleted(compMap, date, i.group.id, i.task.id));
+        const free = holidaySet.has(date), items = fastNestedPlan(date, groups, holidaySet, workdayMap, config, completions).filter(i => taskFilter !== 'done' || isTaskCompleted(compMap, date, i.group.id, i.task.id));
         totalTasks += items.length;
         const count = items.filter(i => isTaskCompleted(compMap, date, i.group.id, i.task.id)).length;
         const tasks = items.map(i => {
@@ -1302,7 +1335,7 @@ async function renderScheduleV2() {
 
       content.querySelectorAll('[data-v2-schedule]').forEach(inp => inp.onchange = async () => {
         const [d, g, t] = inp.dataset.v2Schedule.split('|');
-        await save('completions', { id: completionKey(d, g, t), date: d, groupId: g, taskId: t, done: inp.checked });
+        await save('completions', { id: completionKey(d, g, t), date: d, groupId: g, taskId: t, done: inp.checked, completedAt: inp.checked ? new Date().toISOString() : undefined });
       });
     };
 
@@ -1326,10 +1359,10 @@ async function renderGroupsV2() {
   const holidaySet = new Set();
   (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
   const compMap = new Map((completions || []).map(c => [c.id, c.done]));
-  const rotationPlan = getRotationPlan(groups, holidaySet, config);
+  const rotationPlan = getRotationPlan(groups, holidaySet, config, completions);
   const onceTag = sg => {
     if (sg.repeatMode !== 'once') return '';
-    const finished = isOnceFinished(rotationPlan, sg, compMap);
+    const finished = isOnceFinished(rotationPlan, sg);
     return `<span class="ml-1 shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-extrabold text-white ${finished ? 'bg-emerald-600' : 'bg-amber-600'}">${finished ? 'Zakończona' : 'Jednorazowo'}</span>`;
   };
   const emptyGroupsEl = $('#empty-groups'); if (emptyGroupsEl) emptyGroupsEl.hidden = !!groups.length;
