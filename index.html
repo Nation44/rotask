@@ -497,6 +497,12 @@ const html = v => String(v || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<':
 // Klucz trwałości is_completed: zawsze po stałym task.id (uid), nigdy po indeksie w tablicy - przetrwa przeliczenie rotacji.
 const completionKey = (date, groupId, taskId) => taskId ? `${date}|${groupId}|${taskId}` : `${date}|${groupId}`;
 const isTaskCompleted = (compMap, date, groupId, taskId) => Boolean(compMap.get(`${date}|${groupId}|${taskId}`) || compMap.get(`${date}|${groupId}`));
+const completionDay = record => {
+  if (record.completedDate) return record.completedDate;
+  if (!record.completedAt) return record.date;
+  const date = new Date(record.completedAt);
+  return Number.isNaN(date.getTime()) ? record.date : date.toLocaleDateString('en-CA');
+};
 
 window.getCleanRepeatText = function(repeatType, repeatInterval = 1) {
   const n = parseInt(repeatInterval, 10) || 1;
@@ -671,9 +677,20 @@ function completionState(completions) {
     const key = `${c.groupId}|${c.taskId}`;
     counts.set(key, (counts.get(key) || 0) + 1);
     slots.add(`${c.groupId}|${c.date}`);
+    slots.add(`${c.groupId}|${completionDay(c)}`);
     records.push(c);
   });
   return { counts, slots, records };
+}
+
+// Słownik stanu ukończenia dla jednego dnia, kluczowany po stałym task.id - jedyne źródło prawdy dla widoku "Dzisiaj".
+function completionDictionary(completions, date) {
+  const dict = new Map();
+  (completions || []).forEach(c => {
+    if (!c.done || completionDay(c) !== date || !c.taskId) return;
+    dict.set(c.taskId, { is_completed: !!c.done, completed_at: c.completedAt || null });
+  });
+  return dict;
 }
 
 function subgroupTasks(subgroup) {
@@ -683,22 +700,64 @@ function subgroupTasks(subgroup) {
 // Plan rotacji: co `interval` dni Grupa Główna obsadza slot jednym niewykonanym zadaniem.
 // Wykonane wystąpienia zajmują swój dzień planu, więc zmiana stanu nie przesuwa pozostałych terminów.
 function buildRotationPlan(groups, holidaySet, config, completions) {
-  const { counts, slots, records } = completionState(completions);
+  const { counts, records } = completionState(completions);
   const byDate = new Map(), doneByDate = new Map(), finishedOnce = new Set(), emitted = new Map(), slotCycle = new Map(), lookup = new Map(), lastPick = new Map();
   const groupList = groups.map(normalized);
-  const occurrences = (group, task) => { const key = `${group.id}|${task.id}`; return (counts.get(key) || 0) + (emitted.get(key) || 0); };
+  // Slot rezerwuje wyłącznie dzień planu wpisu (c.date). Dzień odhaczenia zaległości (completedDate) nie blokuje
+  // dzisiejszego slotu - inaczej wykonanie zaległego zadania wypychałoby z widoku zadanie przypisane na dziś.
+  // Indeks podgrupy każdego zadania (także fallbacku `${subgroup.id}-single`) - do ustawienia kursora rotacji na zarezerwowanym slocie.
+  const sgIndexByTask = new Map();
+  groupList.forEach(group => group.subgroups.forEach((subgroup, sgIndex) => subgroupTasks(subgroup).forEach(task => sgIndexByTask.set(`${group.id}|${task.id}`, sgIndex))));
+  // Wpis po usuniętym zadaniu/podgrupie nie rezerwuje slotu - inaczej zostawałby pusty dzień (dziura w rotacji).
+  const slotRecords = new Map();
+  records.forEach(c => {
+    if (!sgIndexByTask.has(`${c.groupId}|${c.taskId}`)) return;
+    const key = `${c.groupId}|${c.date}`;
+    if (!slotRecords.has(key)) slotRecords.set(key, []);
+    slotRecords.get(key).push(c);
+  });
+  // Ukończenia odkrywane wg rzeczywistej daty wykonania; dzisiejsze ukończenie zaczyna wpływać na wybór dopiero jutro.
+  const recordsByDate = new Map();
+  records.forEach(c => {
+    const date = completionDay(c);
+    if (!recordsByDate.has(date)) recordsByDate.set(date, []);
+    recordsByDate.get(date).push(c);
+  });
+  // realCounts: status ukończenia (od dnia po wykonaniu). extraCounts: wystąpienia wpisów, które nie zajęły własnego slotu
+  // (te, które zajęły, są już policzone w `emitted` w dniu slotu - bez podwójnego liczenia).
+  const realCounts = new Map(), extraCounts = new Map(), appliedRecords = new Set(), reservedRecords = new Set();
+  const completionDates = [...recordsByDate.keys()].sort();
+  let completionDateIndex = 0;
+  const applyCompletedBefore = date => {
+    while (completionDateIndex < completionDates.length && completionDates[completionDateIndex] < date) {
+      (recordsByDate.get(completionDates[completionDateIndex]) || []).forEach(c => {
+        const key = `${c.groupId}|${c.taskId}`;
+        realCounts.set(key, (realCounts.get(key) || 0) + 1);
+        appliedRecords.add(c);
+        if (!reservedRecords.has(c)) extraCounts.set(key, (extraCounts.get(key) || 0) + 1);
+      });
+      completionDateIndex++;
+    }
+  };
+  // Slot z wykonanym wpisem zostaje zarezerwowany dla tego zadania: liczy się jako jego wystąpienie i przesuwa kursor
+  // rotacji dokładnie tak, jakby symulacja sama je wybrała - kolejne dni nie przesuwają się po odświeżeniu.
+  const reserveSlot = (group, slotDone) => slotDone.forEach(c => {
+    const key = `${c.groupId}|${c.taskId}`;
+    if (!appliedRecords.has(c)) { reservedRecords.add(c); emitted.set(key, (emitted.get(key) || 0) + 1); }
+    if (sgIndexByTask.has(key)) lastPick.set(group.id, sgIndexByTask.get(key));
+  });
+  const occurrences = (group, task) => { const key = `${group.id}|${task.id}`; return (extraCounts.get(key) || 0) + (emitted.get(key) || 0); };
+  // Jedyne źródło prawdy o ukończeniu w danym punkcie symulacji: licznik odkrytych do tego dnia realnych wpisów z bazy.
+  const isCompletedTask = (group, task) => (realCounts.get(`${group.id}|${task.id}`) || 0) > 0;
   // Następne zadanie podgrupy: pierwszy nieukończony wg order_index (jednorazowa) albo najmniej odbyty, przy remisie najwcześniejszy (powtarzalna).
   const nextTask = (group, subgroup) => {
     const tasks = subgroupTasks(subgroup);
     if (subgroup.repeatMode === 'once') {
-      const realCount = task => counts.get(`${group.id}|${task.id}`) || 0;
-      // Podgrupa zostaje w rotacji, dopóki choć jedno jej zadanie jest REALNIE nieukończone (is_completed=false) -
-      // samo wcześniejsze przydzielenie terminu w zaległościach (emitted) nie liczy się jako ukończenie.
-      if (tasks.every(task => realCount(task) > 0)) return null;
-      // Najpierw zadanie, które jeszcze nigdy nie dostało slotu w symulacji; gdy wszystkie już go dostały
-      // (a mimo to część zaległości wciąż nie jest odhaczona), wraca do najwcześniejszego wciąż nieukończonego.
-      const freshIndex = tasks.findIndex(task => occurrences(group, task) === 0);
-      const index = freshIndex !== -1 ? freshIndex : tasks.findIndex(task => realCount(task) === 0);
+      if (tasks.every(task => isCompletedTask(group, task))) return null;
+      // Seria jednorazowa: każde zadanie dostaje dokładnie jeden termin. Gdy wszystkie już go mają, podgrupa wypada
+      // z rotacji - niewykonane czekają w zaległościach na swojej dacie, zamiast powtarzać się w kolejnych slotach.
+      const index = tasks.findIndex(task => occurrences(group, task) === 0);
+      if (index === -1) return null;
       return { task: tasks[index], taskIndex: index, taskTotal: tasks.length };
     }
     let minIndex = 0, minCount = occurrences(group, tasks[0]);
@@ -723,17 +782,22 @@ function buildRotationPlan(groups, holidaySet, config, completions) {
   // Pełny horyzont bez ucinania: pętla zawsze przechodzi od config.start do config.end (np. 2-3 lata), niezależnie od
   // rozmiaru zaległości; filtrowanie do "dziś" należy wyłącznie do widoku "Dzisiaj" (zob. isDueToday), nie do silnika.
   for (let cursor = config.start; cursor <= config.end; cursor = addDays(cursor, 1)) {
+    applyCompletedBefore(cursor);
     if (holidaySet.has(cursor)) continue;
     const dayItems = [];
     groupList.forEach(group => {
       if (group.active === false || !group.subgroups.length || isPausedOn(group, cursor) || cursor < groupStates.get(group.id)) return;
       groupStates.set(group.id, addDays(cursor, groupInterval(group)));
       const slotKey = `${group.id}|${cursor}`, candidates = candidatesAt(group, cursor);
-      if (!candidates.length) return;
       const cycleDays = groupInterval(group) * candidates.length;
-      slotCycle.set(slotKey, cycleDays);
-      if (slots.has(slotKey)) return;
+      if (candidates.length) slotCycle.set(slotKey, cycleDays);
+      const slotDone = slotRecords.get(slotKey);
+      if (!candidates.length) { if (slotDone) reserveSlot(group, slotDone); return; }
       const pick = pickNext(group, candidates);
+      // Wpis rezerwuje slot tylko, gdy należy do podgrupy, na którą przypada ten dzień rotacji. Wpis z innej podgrupy
+      // (np. z harmonogramu sprzed zmiany daty startu lub resetu) nie przejmuje dnia ani kursora - zostaje tylko wykonaniem.
+      const ownDone = slotDone && slotDone.filter(c => sgIndexByTask.get(`${c.groupId}|${c.taskId}`) === pick.sgIndex);
+      if (ownDone && ownDone.length) { reserveSlot(group, ownDone); return; }
       lastPick.set(group.id, pick.sgIndex);
       const key = `${group.id}|${pick.task.id}`;
       emitted.set(key, (emitted.get(key) || 0) + 1);
@@ -1139,17 +1203,63 @@ async function renderTodayV2() {
   const isGrouped = !!(settingsRecords || []).find(s => s.key === 'today_grouped_view')?.val;
   const groups = (groupsRaw || []).map(normalized);
   const current = today(), compMap = new Map((completions || []).map(c => [c.id, c.done]));
+  // Słownik is_completed dla dzisiejszego dnia, po stałym task.id - jedyne źródło prawdy dla checkboxów w tym widoku.
+  const todayDict = completionDictionary(completions, current);
   const holidaySet = new Set();
   (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
   const workdayMap = new Map();
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
 
-  // Zakaz podmiany: każde zadanie zachowuje własną wyliczoną datę; tu tylko wymuszamy due_date <= dziś (wyłącznie w tej zakładce).
-  const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions).filter(item => isDueToday(item, current));
+  // Widok dzisiaj łączy nieukończone przydziały rotacji z ukończeniami odczytanymi po stałym taskId.
+  const rotationPlan = getRotationPlan(groups, holidaySet, config, completions);
+  const todayItems = (rotationPlan.byDate.get(current) || []).filter(item => isDueToday(item, current));
+  // Słownik { group, subgroup, task } po kluczu `${groupId}|${taskId}` (zawsze jako string) oraz zapasowo po samym taskId.
+  const lookupKey = (groupId, taskId) => `${String(groupId)}|${String(taskId)}`;
+  const todayTaskLookup = new Map(), lookupByTaskId = new Map();
+  groups.forEach(group => group.subgroups.forEach(subgroup => {
+    const tasks = subgroupTasks(subgroup);
+    tasks.forEach((task, taskIndex) => {
+      const item = { group, subgroup, task, taskIndex, taskCount: tasks.length };
+      todayTaskLookup.set(lookupKey(group.id, task.id), item);
+      if (!lookupByTaskId.has(String(task.id))) lookupByTaskId.set(String(task.id), item);
+    });
+    // Wpis `${subgroup.id}-single` pozostaje odnajdywalny także wtedy, gdy podgrupa dostała później zadania.
+    const singleId = `${subgroup.id}-single`;
+    if (!todayTaskLookup.has(lookupKey(group.id, singleId))) {
+      const item = { group, subgroup, task: { id: singleId, name: subgroup.name, url: subgroup.url || '', fallback: true }, taskIndex: 0, taskCount: 1 };
+      todayTaskLookup.set(lookupKey(group.id, singleId), item);
+      if (!lookupByTaskId.has(singleId)) lookupByTaskId.set(singleId, item);
+    }
+  }));
+  // Wystąpienia rozróżniamy po dacie: podgrupa bez zadań (`${subgroup.id}-single`) lub powtarzalna ma wiele wystąpień
+  // TEGO SAMEGO taskId - klucz bez daty usuwał wszystkie naraz po odhaczeniu jednego.
+  const occurrenceKey = (item, date) => `${item.group.id}|${item.task.id}|${date}`;
   const overdue = getOverdueTasks(groups, holidays, config, completions);
+  const overdueKeys = new Set(overdue.map(item => occurrenceKey(item, item.date)));
+  const completedTodayItems = [];
+  (completions || []).filter(c => c.done && completionDay(c) === current && c.taskId).forEach(c => {
+    const item = todayTaskLookup.get(lookupKey(c.groupId, c.taskId)) || lookupByTaskId.get(String(c.taskId));
+    if (!item) return;
+    const recordDate = c.date || current;
+    // recordDate: dzień planu wpisu - checkbox musi aktualizować TEN rekord (dla zaległości odhaczonej dziś to nie jest `current`).
+    if (recordDate >= current) { completedTodayItems.push({ ...item, completed: true, cycleDays: groupCycleDays(item.group, current), date: current, recordDate }); return; }
+    // Zaległość odhaczona dziś zostaje w zaległościach, na swojej pozycji (przekreślona), do końca dnia.
+    if (overdueKeys.has(occurrenceKey(item, recordDate))) return;
+    // Plan nie zwraca wykonanych wpisów węzłów wstrzymanych - wstawiamy je wg daty, żeby nie zniknęły z listy.
+    const at = overdue.findIndex(other => other.date > recordDate);
+    overdue.splice(at === -1 ? overdue.length : at, 0, { ...item, completed: true, cycleDays: groupCycleDays(item.group, recordDate), date: recordDate });
+    overdueKeys.add(occurrenceKey(item, recordDate));
+  });
+  // Zarezerwowany dzisiejszy slot z planu rotacji (doneByDate) - wykonane dziś zadanie zawsze wraca na swoje miejsce.
+  const reservedTodayItems = (rotationPlan.doneByDate.get(current) || []).map(item => ({ ...item, completed: true, recordDate: current }));
+  const todayItemsByKey = new Map(todayItems.map(item => [`${item.group.id}|${item.task.id}`, item]));
+  [...reservedTodayItems, ...completedTodayItems].forEach(item => todayItemsByKey.set(`${item.group.id}|${item.task.id}`, item));
+  const items = [...todayItemsByKey.values()];
   // Wstrzymane grupy lub podgrupy: zaległości z planu zostają, brakujące zadania dopełnia pula.
   mergePausedPool(overdue, groups, completions || [], current);
+  // Pula wstrzymanych nie może zdublować wykonanego dziś wystąpienia, które jest już na liście "Dzisiaj".
+  for (let i = overdue.length - 1; i >= 0; i--) if (overdue[i].completed && overdue[i].date === current && todayItemsByKey.has(`${overdue[i].group.id}|${overdue[i].task.id}`)) overdue.splice(i, 1);
   // Zaległości wstrzymanych węzłów są zawsze w głównej liście, poza zwijanym panelem.
   const isPausedItem = item => !!(item.group.paused || item.subgroup.paused);
   const pausedOverdue = overdue.filter(isPausedItem), activeOverdue = overdue.filter(item => !isPausedItem(item));
@@ -1157,7 +1267,7 @@ async function renderTodayV2() {
   const holidayNoteEl = $('#holiday-note'); if (holidayNoteEl) holidayNoteEl.hidden = !holidaySet.has(current);
   const emptyTodayEl = $('#empty-today'); if (emptyTodayEl) emptyTodayEl.hidden = holidaySet.has(current) || items.length > 0 || pausedOverdue.length > 0;
   const summaryEl = $('#summary');
-  if (summaryEl) summaryEl.innerHTML = holidaySet.has(current) ? '<b>📋 Zadania</b><span class="text-sm font-bold text-teal-300">Dzień wolny</span>' : `<b>📋 Zadania dziś</b><span class="text-sm font-bold text-teal-300">${items.filter(i => isTaskCompleted(compMap, current, i.group.id, i.task.id)).length} z ${items.length} wykonane</span>`;
+  if (summaryEl) summaryEl.innerHTML = holidaySet.has(current) ? '<b>📋 Zadania</b><span class="text-sm font-bold text-teal-300">Dzień wolny</span>' : `<b>📋 Zadania dziś</b><span class="text-sm font-bold text-teal-300">${items.filter(i => i.completed || todayDict.get(i.task.id)?.is_completed || isTaskCompleted(compMap, current, i.group.id, i.task.id)).length} z ${items.length} wykonane</span>`;
 
   const backlogPanel = $('#backlog-panel');
   if (backlogPanel) {
@@ -1203,7 +1313,7 @@ async function renderTodayV2() {
   if (backlogListEl) backlogListEl.innerHTML = isGrouped ? '' : activeOverdue.map(item => renderBacklogCard(item, true)).join('');
 
   const renderTodayCard = (item, showGroup = true) => {
-    const isDone = isTaskCompleted(compMap, current, item.group.id, item.task.id);
+    const isDone = item.completed || todayDict.get(item.task.id)?.is_completed || isTaskCompleted(compMap, current, item.group.id, item.task.id);
     const task = item.task.url ? `<a class="font-bold text-teal-800 underline break-words" target="_blank" href="${html(item.task.url)}">${html(item.task.name)}</a>` : `<b class="font-bold text-slate-900 break-words">${html(item.task.name)}</b>`;
     const segments = [];
     if (showGroup) segments.push({ text: item.group.name, html: html(item.group.name) });
@@ -1212,7 +1322,7 @@ async function renderTodayV2() {
     const hierarchy = joinTitle(segments, ' <span class="text-slate-400">•</span> ');
     return `<article class="task-item rounded-xl border bg-white px-3 py-2.5 shadow-sm ${isDone ? 'border-teal-200 opacity-60' : 'border-slate-200'}">
       <div class="flex items-start gap-2">
-        <input data-v2-today="${item.group.id}|${item.task.id}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${isDone ? 'checked' : ''}>
+        <input data-v2-today="${item.recordDate || current}|${item.group.id}|${item.task.id}" type="checkbox" class="mt-1 h-5 w-5 shrink-0" ${isDone ? 'checked' : ''}>
         <div class="min-w-0 flex-1">
           <div class="flex items-start justify-between gap-2">
             <div class="flex min-w-0 items-center gap-2">
@@ -1276,9 +1386,18 @@ async function renderTodayV2() {
   }
 
   $$('[data-v2-today]').forEach(input => input.onchange = async () => {
-    const [groupId, taskId] = input.dataset.v2Today.split('|');
+    const [recordDate, groupId, taskId] = input.dataset.v2Today.split('|');
     const checked = input.checked;
-    await save('completions', { id: completionKey(current, groupId, taskId), date: current, groupId, taskId, done: checked, completedAt: checked ? new Date().toISOString() : undefined });
+    try {
+      // Najpierw trwały zapis w bazie; dopiero po potwierdzeniu sukcesu zmieniamy styl - bez pełnego przeliczania listy,
+      // żeby wykonane dziś zadanie zostało na swoim miejscu (z przekreśleniem) do końca dnia, a nie znikało od razu.
+      // completedDate jawnie = dziś, więc dzień wykonania nie zależy od strefy czasowej completedAt.
+      await save('completions', { id: completionKey(recordDate, groupId, taskId), date: recordDate, groupId, taskId, done: checked, completedDate: checked ? current : undefined, completedAt: checked ? new Date().toISOString() : undefined });
+    } catch (error) {
+      console.error(error);
+      input.checked = !checked;
+      return say('Nie udało się zapisać stanu zadania');
+    }
     const card = input.closest('article');
     if (card) {
       card.classList.toggle('opacity-60', checked);
@@ -1291,7 +1410,13 @@ async function renderTodayV2() {
   $$('[data-v2-backlog]').forEach(input => input.onchange = async () => {
     const [date, groupId, taskId] = input.dataset.v2Backlog.split('|');
     const checked = input.checked, currentDay = today();
-    await save('completions', { id: completionKey(date, groupId, taskId), date, groupId, taskId, done: checked, completedDate: checked ? currentDay : undefined, completedAt: checked ? new Date().toISOString() : undefined });
+    try {
+      await save('completions', { id: completionKey(date, groupId, taskId), date, groupId, taskId, done: checked, completedDate: checked ? currentDay : undefined, completedAt: checked ? new Date().toISOString() : undefined });
+    } catch (error) {
+      console.error(error);
+      input.checked = !checked;
+      return say('Nie udało się zapisać stanu zadania');
+    }
     const label = input.closest('label');
     if (label) {
       label.classList.toggle('opacity-60', checked);
@@ -1512,9 +1637,21 @@ async function renderGroupsV2() {
     if (act === 'v2SubgroupReset' && confirm('Zresetować postępy tej podgrupy? Cała historia wykonania jej zadań zostanie trwale usunięta.')) {
       const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]);
       if (!sg) return;
-      const taskIds = new Set(subgroupTasks(sg).map(t => t.id));
+      // Wszystkie wpisy podgrupy: obecne zadania i fallback `${sg.id}-single` (także sprzed dodania zadań),
+      // niezależnie od groupId - task.id jest unikalny, a zadanie mogło zostać przeniesione z innej grupy.
+      const taskIds = new Set([...subgroupTasks(sg).map(t => String(t.id)), `${sg.id}-single`]);
       const records = (await all('completions')) || [];
-      for (const c of records) { if (c.groupId === vals[0] && taskIds.has(c.taskId)) await remove('completions', c.id); }
+      // Stare wpisy bez taskId (`data|grupa`) oznaczają cały slot grupy - usuwamy te, których slot należał do tej podgrupy.
+      const legacy = records.filter(c => !c.taskId && c.groupId === vals[0]);
+      let legacyOwned = new Set();
+      if (legacy.length) {
+        const [groupsRaw, holidays, config] = await Promise.all([all('groups'), all('vacations'), settings()]);
+        const holidaySet = new Set();
+        (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
+        const plan = buildRotationPlan((groupsRaw || []).map(normalized), holidaySet, config, records.filter(c => c.taskId));
+        legacyOwned = new Set(legacy.filter(c => [...(plan.byDate.get(c.date) || []), ...(plan.doneByDate.get(c.date) || [])].some(item => item.group.id === vals[0] && item.subgroup.id === sg.id)).map(c => c.id));
+      }
+      for (const c of records) { if ((c.taskId && taskIds.has(String(c.taskId))) || legacyOwned.has(c.id)) await remove('completions', c.id); }
       return renderAll();
     }
     if (act === 'v2SubgroupDelete' && confirm('Usunąć podgrupę?')) { const g = normalized(await getOne('groups', vals[0])); g.subgroups = g.subgroups.filter(s => s.id !== vals[1]); await save('groups', g); renderAll(); }
@@ -1538,7 +1675,8 @@ async function renderGroupsV2() {
       const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]);
       if (!sg) return;
       const rank = task => picks.get(task.id) ?? Number.MAX_SAFE_INTEGER;
-      sg.tasks = reindexTasks([...orderedTasks(sg.tasks)].sort((a, b) => rank(a) - rank(b)));
+      // Indeksy nadawane wprost wg nowej kolejności - reindexTasks() posortowałby ponownie po starym orderIndex i cofnął zmianę.
+      sg.tasks = [...orderedTasks(sg.tasks)].sort((a, b) => rank(a) - rank(b)).map((task, index) => ({ ...task, orderIndex: index }));
       await save('groups', g);
       taskNumberState.delete(vals[1]);
       return renderGroupsV2();
