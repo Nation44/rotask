@@ -592,11 +592,17 @@ const cycleLabel = item => {
 // Filtr WYŁĄCZNIE dla zakładki "Dzisiaj": pełny horyzont z buildRotationPlan ogranicza do zadań należnych dziś lub wcześniej.
 // Zakładka "Harmonogram" nie może go używać — ma pokazywać całą oś czasu (zaległości i przyszłość) bez ucinania.
 const isDueToday = (item, current) => item.date <= current;
-// Kotwica harmonogramu grupy: dzień jej utworzenia, a przy starszych danych start ustawień.
+const isDay = value => /^\d{4}-\d{2}-\d{2}$/.test(String(value || ''));
+// Dzień utworzenia grupy, a przy starszych danych start ustawień.
+const groupCreatedDay = (group, config) => { const created = String(group.created || '').slice(0, 10); return isDay(created) ? created : config.start; };
+// Kotwica harmonogramu grupy: dzień utworzenia, cofnięty (w rytmie interwału) do najwcześniejszej daty "Aktywna od"
+// podgrupy ustawionej wstecz. Dolną granicą zawsze pozostaje data startu z Ustawień.
 const groupAnchor = (group, config) => {
-  const created = String(group.created || '').slice(0, 10);
-  let next = /^\d{4}-\d{2}-\d{2}$/.test(created) ? created : config.start;
-  while (next < config.start) next = addDays(next, groupInterval(group));
+  const interval = groupInterval(group);
+  let next = groupCreatedDay(group, config);
+  const earliest = group.subgroups.map(sg => sg.startDate).filter(isDay).sort()[0];
+  if (earliest && earliest < next) while (addDays(next, -interval) >= earliest) next = addDays(next, -interval);
+  while (next < config.start) next = addDays(next, interval);
   return next;
 };
 
@@ -771,8 +777,11 @@ function buildRotationPlan(groups, holidaySet, config, completions) {
     return { task: tasks[minIndex], taskIndex: minIndex, taskTotal: tasks.length };
   };
   // Uczestnicy slotu: aktywne, niewstrzymane podgrupy z niewykonanym zadaniem.
+  // Przed dniem utworzenia grupy biorą udział tylko podgrupy z datą "Aktywna od" ustawioną wstecz - podgrupa bez daty
+  // startuje razem z grupą, więc cofnięcie jednej podgrupy nie pociąga za sobą pozostałych.
   const candidatesAt = (group, cursor) => group.subgroups.flatMap((subgroup, sgIndex) => {
     if (!isActiveOn(subgroup, cursor) || isPausedOn(subgroup, cursor)) return [];
+    if (!subgroup.startDate && cursor < groupCreatedDay(group, config)) return [];
     const next = nextTask(group, subgroup);
     return next ? [{ subgroup, sgIndex, ...next }] : [];
   });
