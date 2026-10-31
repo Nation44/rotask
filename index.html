@@ -494,6 +494,7 @@ const $ = s => document.querySelector(s), $$ = s => [...document.querySelectorAl
 const uid = () => crypto.randomUUID(), today = () => new Date().toLocaleDateString('en-CA');
 const addDays = (d, n) => { const x = new Date(d + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toLocaleDateString('en-CA'); };
 const html = v => String(v || '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Klucz trwałości is_completed: zawsze po stałym task.id (uid), nigdy po indeksie w tablicy - przetrwa przeliczenie rotacji.
 const completionKey = (date, groupId, taskId) => taskId ? `${date}|${groupId}|${taskId}` : `${date}|${groupId}`;
 const isTaskCompleted = (compMap, date, groupId, taskId) => Boolean(compMap.get(`${date}|${groupId}|${taskId}`) || compMap.get(`${date}|${groupId}`));
 
@@ -573,7 +574,13 @@ const orderedTasks = tasks => [...tasks].sort((left, right) => left.orderIndex -
 const reindexTasks = tasks => orderedTasks(tasks).map((task, index) => ({ ...task, orderIndex: index }));
 
 const groupInterval = group => Math.max(1, Number(group.interval) || 1);
-const groupCycleDays = group => groupInterval(group) * Math.max(1, group.subgroups.reduce((sum, sg) => sum + Math.max(1, (sg.tasks || []).length), 0));
+// Efektywny interwał podgrupy: interwał grupy × liczba jej aktywnych, niewstrzymanych podgrup danego dnia.
+const groupCycleDays = (group, date) => groupInterval(group) * Math.max(1, group.subgroups.filter(sg => isActiveOn(sg, date) && !isPausedOn(sg, date)).length);
+// Etykieta statusu: podgrupa jednorazowa ma stałą etykietę, powtarzalna wyliczony cykl.
+const cycleLabel = item => item.subgroup.repeatMode === 'once' ? 'Jednorazowe' : (item.cycleDays === 1 ? 'Co 1 dzień' : `Co ${item.cycleDays} dni`);
+// Filtr WYŁĄCZNIE dla zakładki "Dzisiaj": pełny horyzont z buildRotationPlan ogranicza do zadań należnych dziś lub wcześniej.
+// Zakładka "Harmonogram" nie może go używać — ma pokazywać całą oś czasu (zaległości i przyszłość) bez ucinania.
+const isDueToday = (item, current) => item.date <= current;
 // Kotwica harmonogramu grupy: dzień jej utworzenia, a przy starszych danych start ustawień.
 const groupAnchor = (group, config) => {
   const created = String(group.created || '').slice(0, 10);
@@ -616,7 +623,8 @@ function withPauseToggled(node, current = today()) {
   return { ...node, paused: true, pausedOn: current, pauseLog: log };
 }
 
-// Niewykonane zadania węzłów wstrzymanych (cała grupa albo pojedyncza podgrupa). Data = dzień pauzy.
+// Niewykonane zadania węzłów wstrzymanych (cała grupa albo pojedyncza podgrupa).
+// Kursor przesuwa się o interwał grupy dla każdego kolejnego oczekującego zadania - żadne dwa nie dzielą tej samej daty.
 function pausedPoolItems(groups, completions, current) {
   const items = [];
   groups.forEach(group => {
@@ -625,13 +633,18 @@ function pausedPoolItems(groups, completions, current) {
     group.subgroups.forEach(subgroup => {
       if (!group.paused && !subgroup.paused) return;
       const node = group.paused ? group : subgroup;
-      const date = node.pausedOn || current;
-      if (!isActiveOn(subgroup, date)) return;
+      const start = node.pausedOn || current;
+      if (!isActiveOn(subgroup, start)) return;
       const tasks = subgroup.tasks && subgroup.tasks.length ? orderedTasks(subgroup.tasks) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
-      const cycleDays = groupCycleDays(group);
+      const cycleDays = groupCycleDays(group, start), interval = groupInterval(group);
+      let cursor = start;
       tasks.forEach(task => {
         if (doneEver.has(task.id) && !doneToday.has(task.id)) return;
-        items.push({ date, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: doneToday.has(task.id) });
+        if (doneToday.has(task.id)) { items.push({ date: current, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: true }); return; }
+        const date = cursor;
+        cursor = addDays(cursor, interval);
+        if (date > current) return; // czeka ukryte do swojego dnia
+        items.push({ date, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: false });
       });
     });
   });
@@ -671,44 +684,67 @@ function subgroupTasks(subgroup) {
 // Wykonane wystąpienia zajmują swój dzień planu, więc zmiana stanu nie przesuwa pozostałych terminów.
 function buildRotationPlan(groups, holidaySet, config, completions) {
   const { counts, slots, records } = completionState(completions);
-  const byDate = new Map(), doneByDate = new Map(), finishedOnce = new Set(), emitted = new Map(), lookup = new Map();
+  const byDate = new Map(), doneByDate = new Map(), finishedOnce = new Set(), emitted = new Map(), slotCycle = new Map(), lookup = new Map(), lastPick = new Map();
   const groupList = groups.map(normalized);
   const occurrences = (group, task) => { const key = `${group.id}|${task.id}`; return (counts.get(key) || 0) + (emitted.get(key) || 0); };
-  const ahead = (a, b) => a.level - b.level || a.taskIndex - b.taskIndex || a.sgIndex - b.sgIndex;
-  // Wyrównanie poziomów: najniższa runda, potem pozycja w podgrupie, potem kolejność podgrup.
-  const pickPending = (group, cursor) => {
-    let best = null;
-    group.subgroups.forEach((subgroup, sgIndex) => {
-      if (isPausedOn(subgroup, cursor) || !isActiveOn(subgroup, cursor)) return;
-      const tasks = subgroupTasks(subgroup), levels = tasks.map(task => occurrences(group, task));
-      const round = subgroup.repeatMode === 'once' ? 0 : Math.min(...levels);
-      tasks.forEach((task, taskIndex) => {
-        if (levels[taskIndex] !== round) return;
-        const candidate = { subgroup, task, taskIndex, taskCount: tasks.length, level: levels[taskIndex], sgIndex };
-        if (!best || ahead(candidate, best) < 0) best = candidate;
-      });
-    });
-    return best;
+  // Następne zadanie podgrupy: pierwszy nieukończony wg order_index (jednorazowa) albo najmniej odbyty, przy remisie najwcześniejszy (powtarzalna).
+  const nextTask = (group, subgroup) => {
+    const tasks = subgroupTasks(subgroup);
+    if (subgroup.repeatMode === 'once') {
+      const realCount = task => counts.get(`${group.id}|${task.id}`) || 0;
+      // Podgrupa zostaje w rotacji, dopóki choć jedno jej zadanie jest REALNIE nieukończone (is_completed=false) -
+      // samo wcześniejsze przydzielenie terminu w zaległościach (emitted) nie liczy się jako ukończenie.
+      if (tasks.every(task => realCount(task) > 0)) return null;
+      // Najpierw zadanie, które jeszcze nigdy nie dostało slotu w symulacji; gdy wszystkie już go dostały
+      // (a mimo to część zaległości wciąż nie jest odhaczona), wraca do najwcześniejszego wciąż nieukończonego.
+      const freshIndex = tasks.findIndex(task => occurrences(group, task) === 0);
+      const index = freshIndex !== -1 ? freshIndex : tasks.findIndex(task => realCount(task) === 0);
+      return { task: tasks[index], taskIndex: index, taskTotal: tasks.length };
+    }
+    let minIndex = 0, minCount = occurrences(group, tasks[0]);
+    // Powtarzalna: po dotarciu do końca listy wskaźnik wraca na 0, bo żaden indeks nie ma wtedy liczby mniejszej od pierwszego - podgrupa nigdy nie wypada z rotacji.
+    tasks.forEach((task, index) => { const count = occurrences(group, task); if (count < minCount) { minCount = count; minIndex = index; } });
+    return { task: tasks[minIndex], taskIndex: minIndex, taskTotal: tasks.length };
+  };
+  // Uczestnicy slotu: aktywne, niewstrzymane podgrupy z niewykonanym zadaniem.
+  const candidatesAt = (group, cursor) => group.subgroups.flatMap((subgroup, sgIndex) => {
+    if (!isActiveOn(subgroup, cursor) || isPausedOn(subgroup, cursor)) return [];
+    const next = nextTask(group, subgroup);
+    return next ? [{ subgroup, sgIndex, ...next }] : [];
+  });
+  // Rotacja wg pozycji w tablicy podgrup (nie wg liczników wykonań): gwarantuje, że żadna podgrupa nie dostanie
+  // drugiego slotu z rzędu, dopóki inna aktywna podgrupa ma jeszcze niewykonane zadanie.
+  const pickNext = (group, candidates) => {
+    const last = lastPick.get(group.id) ?? -1, size = group.subgroups.length;
+    const rank = c => (c.sgIndex - last - 1 + size) % size;
+    return candidates.reduce((best, c) => (!best || rank(c) < rank(best) ? c : best), null);
   };
   const groupStates = new Map(groupList.map(group => [group.id, groupAnchor(group, config)]));
+  // Pełny horyzont bez ucinania: pętla zawsze przechodzi od config.start do config.end (np. 2-3 lata), niezależnie od
+  // rozmiaru zaległości; filtrowanie do "dziś" należy wyłącznie do widoku "Dzisiaj" (zob. isDueToday), nie do silnika.
   for (let cursor = config.start; cursor <= config.end; cursor = addDays(cursor, 1)) {
     if (holidaySet.has(cursor)) continue;
     const dayItems = [];
     groupList.forEach(group => {
       if (group.active === false || !group.subgroups.length || isPausedOn(group, cursor) || cursor < groupStates.get(group.id)) return;
       groupStates.set(group.id, addDays(cursor, groupInterval(group)));
-      if (slots.has(`${group.id}|${cursor}`)) return;
-      const pick = pickPending(group, cursor);
-      if (!pick) return;
+      const slotKey = `${group.id}|${cursor}`, candidates = candidatesAt(group, cursor);
+      if (!candidates.length) return;
+      const cycleDays = groupInterval(group) * candidates.length;
+      slotCycle.set(slotKey, cycleDays);
+      if (slots.has(slotKey)) return;
+      const pick = pickNext(group, candidates);
+      lastPick.set(group.id, pick.sgIndex);
       const key = `${group.id}|${pick.task.id}`;
       emitted.set(key, (emitted.get(key) || 0) + 1);
-      dayItems.push({ group, subgroup: pick.subgroup, task: pick.task, taskIndex: pick.taskIndex, taskCount: pick.taskCount, cycleDays: groupCycleDays(group) });
+      // Data zadania jest tym samym dniem symulacji, w którym wygrało slot - nigdy nie jest później nadpisywana.
+      dayItems.push({ group, subgroup: pick.subgroup, task: pick.task, taskIndex: pick.taskIndex, taskCount: pick.taskTotal, cycleDays, date: cursor });
     });
     if (dayItems.length) byDate.set(cursor, dayItems);
   }
   groupList.forEach(group => group.subgroups.forEach(subgroup => {
     const tasks = subgroupTasks(subgroup);
-    tasks.forEach((task, taskIndex) => lookup.set(`${group.id}|${task.id}`, { group, subgroup, task, taskIndex, taskCount: tasks.length, cycleDays: groupCycleDays(group) }));
+    tasks.forEach((task, taskIndex) => lookup.set(`${group.id}|${task.id}`, { group, subgroup, task, taskIndex, taskCount: tasks.length }));
     if (subgroup.repeatMode === 'once' && tasks.every(task => (counts.get(`${group.id}|${task.id}`) || 0) > 0)) finishedOnce.add(subgroup.id);
   }));
   records.forEach(c => {
@@ -716,7 +752,7 @@ function buildRotationPlan(groups, holidaySet, config, completions) {
     // Wstrzymane węzły pokazuje pula wstrzymanych, więc nie dublujemy ich w planie.
     if (!item || item.group.paused || item.subgroup.paused) return;
     if (!doneByDate.has(c.date)) doneByDate.set(c.date, []);
-    doneByDate.get(c.date).push(item);
+    doneByDate.get(c.date).push({ ...item, cycleDays: slotCycle.get(`${c.groupId}|${c.date}`) || groupCycleDays(item.group, c.date), date: c.date });
   });
   return { byDate, doneByDate, finishedOnce };
 }
@@ -780,6 +816,17 @@ async function moveTask(groupId, subgroupId, taskId, direction) {
 }
 
 const GROUP_TODAY_LIMIT = 10;
+// Grupy, dla których użytkownik rozwinął pełną listę zaległości (widok "Dzisiaj" pogrupowany).
+const expandedBacklogGroups = new Set();
+// Szybkie numerowanie zadań w Edycji Podgrupy: subgroupId -> Map(taskId -> numer); obecność klucza = tryb włączony.
+const taskNumberState = new Map();
+function taskNumberTogglePick(picks, taskId) {
+  const removed = picks.get(taskId);
+  if (removed) {
+    picks.delete(taskId);
+    picks.forEach((value, key) => { if (value > removed) picks.set(key, value - 1); });
+  } else picks.set(taskId, picks.size + 1);
+}
 
 /* Planer Dnia: szablon i dni w store 'settings' (key: planner_template, planner_YYYY-MM-DD) */
 const PLANNER_TEMPLATE_KEY = 'planner_template', PLANNER_DEFAULT_START = '08:00', PLANNER_STEP = 5, PLANNER_EDIT_STEP = 15, PLANNER_MAX = 720;
@@ -841,20 +888,22 @@ const updatePlannerDay = mutate => queuePlanner(async () => {
 const plannerPill = win => `<span class="shrink-0 whitespace-nowrap rounded border border-teal-200 bg-teal-50 px-2 py-0.5 font-mono text-xs font-bold text-teal-800">${plannerFormatTime(win.start)} - ${plannerFormatTime(win.end)}</span>`;
 const plannerColorDot = src => src?.color ? `<span class="h-2.5 w-2.5 shrink-0 rounded-full" style="background:${html(src.color)}"></span>` : '';
 const plannerSourceLabel = item => item.src ? `<span class="flex min-w-0 items-center gap-1.5 text-[10px] font-bold text-slate-500">${plannerColorDot(item.src)}<span class="truncate">${html(item.src.label)}</span></span>` : '';
+// Nazwa punktu planera jako link, jeśli zadanie/wydarzenie ma przypisany URL (z zadania, podgrupy lub wydarzenia).
+const plannerNameHtml = item => item.src?.url ? `<a class="underline" target="_blank" href="${html(item.src.url)}">${html(item.name)}</a>` : html(item.name);
 
 const plannerViewCard = (item, win) => `<li class="flex items-center gap-2.5 rounded-xl border px-3 py-1.5 shadow-sm ${item.done ? 'border-slate-200 bg-slate-100 opacity-60' : 'border-slate-300 bg-white hover:border-teal-400'}">
   <input data-planner-done="${item.id}" type="checkbox" class="h-5 w-5 shrink-0" title="Wykonane" ${item.done ? 'checked' : ''}>
   ${plannerPill(win)}
   <div class="flex min-w-0 flex-1 items-center gap-2">
     ${plannerColorDot(item.src)}
-    <span class="break-words text-sm font-extrabold ${item.done ? 'line-through text-slate-400' : 'text-slate-900'}">${html(item.name)}</span>
+    <span class="break-words text-sm font-extrabold ${item.done ? 'line-through text-slate-400' : 'text-slate-900'}">${plannerNameHtml(item)}</span>
   </div>
 </li>`;
 
 const plannerEditCard = (item, win) => `<li class="rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm hover:border-teal-400">
   <div class="flex items-start justify-between gap-2">
     <div class="min-w-0 flex-1">
-      <div class="break-words text-sm font-extrabold text-slate-900">${html(item.name)}</div>
+      <div class="break-words text-sm font-extrabold text-slate-900">${plannerNameHtml(item)}</div>
       ${plannerSourceLabel(item)}
     </div>
     ${plannerPill(win)}
@@ -933,7 +982,8 @@ async function plannerTaskSources() {
   (holidays || []).forEach(h => { for (let c = h.start; c <= h.end; c = addDays(c, 1)) holidaySet.add(c); });
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
-  const todayItems = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions || []).map(item => ({ ...item, date: current }));
+  // Zadania zachowują własną wyliczoną datę (bez nadpisywania na "dziś"); filtr due_date <= dziś jest już speniony przez zapytanie o datę bieżącą.
+  const todayItems = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions || []).filter(item => isDueToday(item, current));
   const overdueItems = mergePausedPool(getOverdueTasks(groups, holidays || [], config, completions || []), groups, completions || [], current);
   return groups
     .map(group => ({ group, items: [...overdueItems, ...todayItems].filter(item => item.group.id === group.id).slice(0, 5) }))
@@ -1000,12 +1050,13 @@ async function openPlannerAdd() {
     if (!isFree(key)) return null;
     const name = item.task.fallback ? item.subgroup.name : item.task.name;
     const meta = [item.task.fallback ? '' : item.subgroup.name, item.date !== current ? `zaległe ${item.date}` : ''].filter(Boolean).join(' · ');
-    return plannerPickRow(key, name, meta, { type: 'task', key, label: `${item.group.name} • ${item.subgroup.name}`, color: item.group.color || '#0f766e' });
+    const url = item.task.fallback ? (item.subgroup.url || '') : (item.task.url || item.subgroup.url || '');
+    return plannerPickRow(key, name, meta, { type: 'task', key, label: `${item.group.name} • ${item.subgroup.name}`, color: item.group.color || '#0f766e', url });
   };
   const eventRow = ({ ev, date }, overdue) => {
     const key = `event|${ev.id}|${date}`;
     if (!isFree(key)) return null;
-    return plannerPickRow(key, ev.name, overdue ? `zaległe ${date}` : '', { type: 'event', key, label: 'Wydarzenie', color: '#7e22ce' });
+    return plannerPickRow(key, ev.name, overdue ? `zaległe ${date}` : '', { type: 'event', key, label: 'Wydarzenie', color: '#7e22ce', url: ev.url || '' });
   };
   const sections = [
     plannerSection('Zaległe wydarzenia', events.overdueEvents.map(entry => eventRow(entry, true)).filter(Boolean)),
@@ -1094,7 +1145,8 @@ async function renderTodayV2() {
   let workCount = 0;
   for (let c = config.start; c <= current; c = addDays(c, 1)) { if (!holidaySet.has(c)) workdayMap.set(c, workCount++); }
 
-  const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions);
+  // Zakaz podmiany: każde zadanie zachowuje własną wyliczoną datę; tu tylko wymuszamy due_date <= dziś (wyłącznie w tej zakładce).
+  const items = fastNestedPlan(current, groups, holidaySet, workdayMap, config, completions).filter(item => isDueToday(item, current));
   const overdue = getOverdueTasks(groups, holidays, config, completions);
   // Wstrzymane grupy lub podgrupy: zaległości z planu zostają, brakujące zadania dopełnia pula.
   mergePausedPool(overdue, groups, completions || [], current);
@@ -1123,7 +1175,8 @@ async function renderTodayV2() {
   const renderBacklogCard = (item, showGroup = true) => {
     const daysLate = lateDays(item.date, current, item.group, item.subgroup);
     const lateBadge = daysLate === 1 ? '1 dzień po' : `${daysLate} dni po`;
-    const cycle = window.getScheduleSubtitle(item.date, { repeatUnit: 'days', repeatInterval: item.cycleDays, isRotation: true }, item.subgroup);
+    const dayNames = ['niedziela', 'poniedziałek', 'wtorek', 'środa', 'czwartek', 'piątek', 'sobota'];
+    const cycle = `${item.date} (${dayNames[new Date(item.date + 'T00:00:00').getDay()]}) · ${cycleLabel(item)}`;
     const segments = [];
     if (showGroup) segments.push({ text: item.group.name, html: html(item.group.name) });
     segments.push({ text: item.subgroup.name, html: item.subgroup.url ? `<a class="font-bold text-slate-900 underline" target="_blank" href="${html(item.subgroup.url)}">${html(item.subgroup.name)}</a>` : html(item.subgroup.name) });
@@ -1169,7 +1222,7 @@ async function renderTodayV2() {
             <button type="button" data-task-edit="${item.group.id}|${item.subgroup.id}|${item.task.id}" class="shrink-0 p-1 text-slate-400 hover:text-teal-700 hover:bg-slate-100 rounded transition" title="Edytuj"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
           </div>
           <div class="mt-2 flex items-center justify-between gap-2 border-t border-slate-100 pt-1.5">
-            <span class="text-xs text-slate-500">co ${item.cycleDays} dni</span>
+            <span class="text-xs text-slate-500">${cycleLabel(item)}</span>
           </div>
         </div>
       </div>
@@ -1182,7 +1235,8 @@ async function renderTodayV2() {
     overdue.forEach(item => add(item.group.id, () => renderBacklogCard(item, false)));
     items.forEach(item => add(item.group.id, () => renderTodayCard(item, false)));
     return groups.filter(group => entries.has(group.id) || group.paused).map(group => {
-      const renders = entries.get(group.id) || [], limit = group.paused ? Infinity : GROUP_TODAY_LIMIT, hiddenCount = renders.length - limit;
+      const renders = entries.get(group.id) || [], expanded = expandedBacklogGroups.has(group.id);
+      const limit = expanded ? Infinity : GROUP_TODAY_LIMIT, hiddenCount = renders.length - limit;
       const pauseTag = group.paused ? '<span class="rounded-md bg-slate-400 px-2 py-0.5 text-[10px] font-extrabold text-white">PAUZA</span>' : '';
       return `<details data-accordion-id="today-group-${html(group.id)}" data-accordion-default="open" class="group-today-acc border rounded-xl overflow-hidden mb-3 bg-white border-slate-200 shadow-sm">
         <summary class="flex items-center justify-between p-3 bg-teal-900 text-white cursor-pointer select-none">
@@ -1203,7 +1257,8 @@ async function renderTodayV2() {
           </div>
         </summary>
         <div class="space-y-3 p-3">${renders.length ? renders.slice(0, limit).map(render => render()).join('') : '<p class="text-xs text-slate-500">Rotacja wstrzymana. Wznów ją w edycji grupy.</p>'}</div>
-        ${hiddenCount > 0 ? `<div class="text-center text-xs text-slate-400 py-2 border-t border-slate-100">+ ${hiddenCount} kolejnych zadań ukrytych</div>` : ''}
+        ${hiddenCount > 0 ? `<button type="button" data-v2-backlog-toggle="${html(group.id)}" class="block w-full text-center text-xs font-bold text-teal-700 hover:text-teal-900 py-2 border-t border-slate-100">Pokaż pozostałe ${hiddenCount} zaległe zadania</button>` : ''}
+        ${expanded && renders.length > GROUP_TODAY_LIMIT ? `<button type="button" data-v2-backlog-toggle="${html(group.id)}" class="block w-full text-center text-xs font-bold text-slate-500 hover:text-slate-700 py-2 border-t border-slate-100">Ukryj pozostałe</button>` : ''}
       </details>`;
     }).join('');
   };
@@ -1213,6 +1268,11 @@ async function renderTodayV2() {
     const pausedStrip = groups.filter(g => g.paused).map(g => `<span class="rounded-md bg-slate-400 px-2 py-1 text-xs font-extrabold text-white">PAUZA · ${html(g.name)}</span>`).join('');
     todayListEl.innerHTML = isGrouped ? renderGroupedTasks() : (pausedStrip ? `<div class="mb-3 flex flex-wrap gap-2">${pausedStrip}</div>` : '') + pausedOverdue.map(item => renderBacklogCard(item, true)).join('') + items.map(item => renderTodayCard(item, true)).join('');
     restoreAccordions(todayListEl);
+    todayListEl.querySelectorAll('[data-v2-backlog-toggle]').forEach(button => button.onclick = () => {
+      const id = button.dataset.v2BacklogToggle;
+      if (expandedBacklogGroups.has(id)) expandedBacklogGroups.delete(id); else expandedBacklogGroups.add(id);
+      renderTodayV2();
+    });
   }
 
   $$('[data-v2-today]').forEach(input => input.onchange = async () => {
@@ -1256,6 +1316,7 @@ async function renderTodayV2() {
 }
 
 async function renderScheduleV2() {
+  // Pełna oś czasu (zaległości + przyszłość do config.end): celowo BEZ filtra isDueToday/due_date <= dziś, który należy wyłącznie do widoku "Dzisiaj".
   const [groupsRaw, holidays, config, completions] = await Promise.all([all('groups'), all('vacations'), settings(), all('completions')]);
   const groups = (groupsRaw || []).map(normalized);
   const compMap = new Map((completions || []).map(c => [c.id, c.done]));
@@ -1388,12 +1449,23 @@ async function renderGroupsV2() {
           <div class="flex shrink-0 items-center gap-1">
             <button data-v2-task-add="${g.id}|${sg.id}" title="Dodaj zadanie" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="plus" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-pause="${g.id}|${sg.id}" title="${sg.paused ? 'Wznów podgrupę' : 'Wstrzymaj podgrupę'}" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="${sg.paused ? 'play' : 'pause'}" class="h-3.5 w-3.5"></i></button>
+            <button data-v2-subgroup-reset="${g.id}|${sg.id}" title="Resetuj postępy podgrupy" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="rotate-ccw" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-edit="${g.id}|${sg.id}" title="Edytuj podgrupę" class="p-1 text-teal-100 hover:bg-teal-700 rounded transition"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button>
             <button data-v2-subgroup-delete="${g.id}|${sg.id}" title="Usuń podgrupę" class="p-1 text-rose-200 hover:bg-rose-900/40 rounded transition"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button>
           </div>
         </summary>
         <div class="px-3 pb-3 pt-2">
-        <ul class="mt-2 space-y-1.5">${orderedTasks(sg.tasks).map((t, ti) => `<li class="flex items-center gap-2 rounded-xl border-l-4 bg-white px-3 py-2 shadow-xs border border-slate-100" style="border-left-color:${g.color}"><span class="text-[11px] font-bold text-slate-400">${ti + 1}</span><b class="min-w-0 flex-1 truncate text-xs text-slate-800">${html(t.name)}</b><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|-1" title="Przenieś w górę" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-up" class="h-3.5 w-3.5"></i></button><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|1" title="Przenieś w dół" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button><button data-v2-task-edit="${g.id}|${sg.id}|${t.id}" title="Edytuj zadanie" class="p-1 text-teal-700 hover:bg-teal-50 rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button><button data-v2-task-delete="${g.id}|${sg.id}|${t.id}" title="Usuń zadanie" class="p-1 text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></li>`).join('') || '<li class="py-1 text-xs text-slate-400">Brak dodatkowych zadań</li>'}</ul>
+        ${(() => { const numbering = taskNumberState.has(sg.id); const picks = taskNumberState.get(sg.id); return `<div class="mb-2 flex items-center justify-between gap-2">
+          <button type="button" data-v2-task-number-toggle="${sg.id}" class="rounded-md border px-2 py-1 text-[11px] font-bold ${numbering ? 'border-amber-400 bg-amber-400 text-slate-900' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}">${numbering ? 'Anuluj numerowanie' : '↕ Tryb numerowania'}</button>
+          ${numbering ? `<button type="button" data-v2-task-number-apply="${g.id}|${sg.id}" class="rounded-md bg-teal-700 px-2 py-1 text-[11px] font-bold text-white hover:bg-teal-800">Zastosuj nową kolejność</button>` : ''}
+        </div>`; })()}
+        <ul class="mt-2 space-y-1.5">${orderedTasks(sg.tasks).map((t, ti) => {
+          const numbering = taskNumberState.has(sg.id), picks = taskNumberState.get(sg.id);
+          const indexBadge = numbering
+            ? `<button type="button" data-v2-task-number-pick="${g.id}|${sg.id}|${t.id}" class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-extrabold ${picks.has(t.id) ? 'bg-teal-700 text-white' : 'bg-slate-200 text-slate-500 hover:bg-slate-300'}">${picks.get(t.id) ?? '-'}</button>`
+            : `<span class="text-[11px] font-bold text-slate-400">${ti + 1}</span>`;
+          return `<li class="flex items-center gap-2 rounded-xl border-l-4 bg-white px-3 py-2 shadow-xs border border-slate-100" style="border-left-color:${g.color}">${indexBadge}<b class="min-w-0 flex-1 truncate text-xs text-slate-800">${html(t.name)}</b><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|-1" title="Przenieś w górę" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-up" class="h-3.5 w-3.5"></i></button><button data-v2-task-move="${g.id}|${sg.id}|${t.id}|1" title="Przenieś w dół" class="p-1 text-slate-400 hover:bg-slate-100 rounded"><i data-lucide="chevron-down" class="h-3.5 w-3.5"></i></button><button data-v2-task-edit="${g.id}|${sg.id}|${t.id}" title="Edytuj zadanie" class="p-1 text-teal-700 hover:bg-teal-50 rounded"><i data-lucide="pencil" class="h-3.5 w-3.5"></i></button><button data-v2-task-delete="${g.id}|${sg.id}|${t.id}" title="Usuń zadanie" class="p-1 text-rose-600 hover:bg-rose-50 rounded"><i data-lucide="trash-2" class="h-3.5 w-3.5"></i></button></li>`;
+        }).join('') || '<li class="py-1 text-xs text-slate-400">Brak dodatkowych zadań</li>'}</ul>
         </div>
       </details>`).join('')}
       <button data-v2-subgroup-add="${g.id}" class="w-full rounded-lg py-2 text-xs font-bold text-teal-900 transition hover:bg-teal-100" style="background:${g.color}22">+ Dodaj podgrupę</button>
@@ -1437,11 +1509,40 @@ async function renderGroupsV2() {
       return renderAll();
     }
     if (act === 'v2SubgroupEdit') return subgroupModal(vals[0], vals[1]);
+    if (act === 'v2SubgroupReset' && confirm('Zresetować postępy tej podgrupy? Cała historia wykonania jej zadań zostanie trwale usunięta.')) {
+      const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]);
+      if (!sg) return;
+      const taskIds = new Set(subgroupTasks(sg).map(t => t.id));
+      const records = (await all('completions')) || [];
+      for (const c of records) { if (c.groupId === vals[0] && taskIds.has(c.taskId)) await remove('completions', c.id); }
+      return renderAll();
+    }
     if (act === 'v2SubgroupDelete' && confirm('Usunąć podgrupę?')) { const g = normalized(await getOne('groups', vals[0])); g.subgroups = g.subgroups.filter(s => s.id !== vals[1]); await save('groups', g); renderAll(); }
     if (act === 'v2TaskAdd') return openUnifiedModal('task', { groupId: vals[0], subgroupId: vals[1] });
     if (act === 'v2TaskMove') return moveTask(vals[0], vals[1], vals[2], Number(vals[3]));
     if (act === 'v2TaskEdit') return openUnifiedModal('task', { groupId: vals[0], subgroupId: vals[1], taskId: vals[2] });
     if (act === 'v2TaskDelete' && confirm('Usunąć zadanie?')) { const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]); if (sg) sg.tasks = reindexTasks(sg.tasks.filter(t => t.id !== vals[2])); await save('groups', g); renderAll(); }
+    if (act === 'v2TaskNumberToggle') {
+      if (taskNumberState.has(vals[0])) taskNumberState.delete(vals[0]); else taskNumberState.set(vals[0], new Map());
+      return renderGroupsV2();
+    }
+    if (act === 'v2TaskNumberPick') {
+      const picks = taskNumberState.get(vals[1]);
+      if (!picks) return;
+      taskNumberTogglePick(picks, vals[2]);
+      return renderGroupsV2();
+    }
+    if (act === 'v2TaskNumberApply') {
+      const picks = taskNumberState.get(vals[1]);
+      if (!picks) return;
+      const g = normalized(await getOne('groups', vals[0])), sg = g.subgroups.find(s => s.id === vals[1]);
+      if (!sg) return;
+      const rank = task => picks.get(task.id) ?? Number.MAX_SAFE_INTEGER;
+      sg.tasks = reindexTasks([...orderedTasks(sg.tasks)].sort((a, b) => rank(a) - rank(b)));
+      await save('groups', g);
+      taskNumberState.delete(vals[1]);
+      return renderGroupsV2();
+    }
   };
   if (window.lucide) { const groupsViewEl = $('#groups-view'); lucide.createIcons(groupsViewEl ? { root: groupsViewEl } : undefined); }
 }
@@ -1880,7 +1981,7 @@ async function ensureSeedData() {
     { id: 'seed-thm', name: 'THM / PowerShell', color: '#d97706', subgroup: 'Praktyka', tasks: [{ id: 'seed-thm-room', name: 'Jedno ćwiczenie THM' }, { id: 'seed-powershell', name: 'Skrypt PowerShell' }] }
   ];
   for (const seed of seedGroups) {
-    await save('groups', { id: seed.id, name: seed.name, color: seed.color, active: true, created, subgroups: [{ id: `${seed.id}-subgroup`, name: seed.subgroup, url: '', startDate: today(), endDate: '', tasks: seed.tasks.map(t => ({ ...t, startDate: today(), endDate: '' })) }] });
+    await save('groups', { id: seed.id, name: seed.name, color: seed.color, active: true, created, subgroups: [{ id: `${seed.id}-subgroup`, name: seed.subgroup, url: '', startDate: today(), endDate: '', tasks: seed.tasks }] });
   }
 }
 
