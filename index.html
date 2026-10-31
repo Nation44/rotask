@@ -583,7 +583,12 @@ const groupInterval = group => Math.max(1, Number(group.interval) || 1);
 // Efektywny interwał podgrupy: interwał grupy × liczba jej aktywnych, niewstrzymanych podgrup danego dnia.
 const groupCycleDays = (group, date) => groupInterval(group) * Math.max(1, group.subgroups.filter(sg => isActiveOn(sg, date) && !isPausedOn(sg, date)).length);
 // Etykieta statusu: podgrupa jednorazowa ma stałą etykietę, powtarzalna wyliczony cykl.
-const cycleLabel = item => item.subgroup.repeatMode === 'once' ? 'Jednorazowe' : (item.cycleDays === 1 ? 'Co 1 dzień' : `Co ${item.cycleDays} dni`);
+// Konkretne zadanie wraca dopiero po przejściu całej listy podgrupy: cykl podgrupy × liczba jej zadań (np. 7 podgrup × 7 zadań = co 49 dni).
+const cycleLabel = item => {
+  if (item.subgroup.repeatMode === 'once') return 'Jednorazowe';
+  const days = (item.cycleDays || 1) * (item.task?.fallback ? 1 : Math.max(1, item.taskCount || 1));
+  return days === 1 ? 'Co 1 dzień' : `Co ${days} dni`;
+};
 // Filtr WYŁĄCZNIE dla zakładki "Dzisiaj": pełny horyzont z buildRotationPlan ogranicza do zadań należnych dziś lub wcześniej.
 // Zakładka "Harmonogram" nie może go używać — ma pokazywać całą oś czasu (zaległości i przyszłość) bez ucinania.
 const isDueToday = (item, current) => item.date <= current;
