@@ -38,7 +38,13 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
 <main class="mx-auto min-h-screen max-w-3xl pb-24">
 <header class="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-slate-50/95 px-4 py-4 backdrop-blur">
   <h1 id="title" class="text-2xl font-extrabold tracking-tight text-slate-900">Dzisiaj</h1>
-  <div id="date" class="rounded-xl border border-teal-200/80 bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-900 shadow-sm"></div>
+  <!-- Szybkie dodawanie w stałej belce (tylko widok "Dzisiaj"): zawsze widoczne, także po przewinięciu listy -->
+  <div class="flex items-center gap-2">
+    <button id="quick-add-btn" type="button" title="Dodaj nowe zadanie lub wydarzenie" aria-label="Dodaj nowe zadanie lub wydarzenie" class="inline-flex h-8 items-center gap-1 rounded-xl bg-teal-700 pl-2 pr-3 text-xs font-extrabold text-white shadow-sm transition hover:bg-teal-800 active:scale-95">
+      <span class="text-base leading-none">+</span>Dodaj
+    </button>
+    <div id="date" class="rounded-xl border border-teal-200/80 bg-teal-50 px-3 py-1.5 text-xs font-extrabold text-teal-900 shadow-sm"></div>
+  </div>
 </header>
 
 <section id="today-view" class="view px-4 py-5">
@@ -49,26 +55,16 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
       <span class="planner-only-edit text-sm font-extrabold">⏱️ Edycja Planu Dnia</span>
       <span id="planner-summary" class="planner-only-view text-xs font-bold text-teal-200"></span>
       <button type="button" data-planner-act="edit" class="planner-only-view ml-auto rounded-md p-1 text-teal-200 hover:bg-teal-800 hover:text-white" title="Edytuj plan dnia"><i data-lucide="pencil" class="h-4 w-4"></i></button>
-      <div class="planner-only-edit ml-auto flex flex-wrap items-center gap-1.5">
-        <label class="flex items-center gap-1.5 text-xs font-bold text-teal-100">Start
-          <input id="planner-start" type="time" value="08:00" class="rounded-md border border-teal-600 bg-white px-1.5 py-1 text-xs font-bold text-slate-800">
-        </label>
-        <button type="button" data-planner-act="add" class="rounded-lg bg-white px-2.5 py-1.5 text-xs font-extrabold text-teal-900 hover:bg-teal-50">+ Dodaj punkt</button>
-        <button type="button" data-planner-act="reorder" id="planner-reorder-btn" class="rounded-lg border border-teal-300 px-2.5 py-1.5 text-xs font-extrabold text-white hover:bg-teal-800">↕ Numeruj / Zmień kolejność</button>
-        <button type="button" data-planner-act="done" class="flex items-center gap-1 rounded-lg bg-amber-400 px-2.5 py-1.5 text-xs font-extrabold text-slate-900 hover:bg-amber-300" title="Zakończ edycję"><i data-lucide="check" class="h-4 w-4"></i>Zakończ</button>
+      <!-- Belka edycji (wersja 1): rząd 1 = tytuł + "Zakończ" w rogu; rząd 2 = trzy równe pola: godzina startu, Dodaj, Kolejność/Gotowe -->
+      <button type="button" data-planner-act="done" class="planner-only-edit ml-auto flex h-8 items-center gap-1 rounded-lg bg-amber-400 px-3 text-xs font-extrabold text-slate-900 hover:bg-amber-300" title="Zakończ edycję"><i data-lucide="check" class="h-4 w-4"></i>Zakończ</button>
+      <div class="planner-only-edit mt-1 grid w-full basis-full grid-cols-3 gap-2">
+        <input id="planner-start" type="time" value="08:00" title="Godzina startu planu" aria-label="Godzina startu planu" class="h-9 w-full min-w-0 rounded-lg border-2 border-teal-400 bg-white px-2 text-sm font-bold text-slate-800">
+        <button type="button" data-planner-act="add" class="flex h-9 w-full items-center justify-center whitespace-nowrap rounded-lg bg-white text-xs font-extrabold text-teal-900 hover:bg-teal-50">+ Dodaj</button>
+        <button type="button" data-planner-act="reorder" id="planner-reorder-btn" class="flex h-9 w-full items-center justify-center whitespace-nowrap rounded-lg border border-teal-300 text-xs font-extrabold text-white hover:bg-teal-800">↕ Kolejność</button>
       </div>
     </summary>
     <ul id="planner-list" class="space-y-1.5 border-t border-teal-100 bg-slate-50/60 p-3"></ul>
   </details>
-  <button id="quick-add-btn" type="button" class="group mb-5 flex w-full items-center justify-between rounded-xl border-2 border-dashed border-teal-600/40 bg-white px-4 py-3.5 shadow-sm transition hover:border-teal-600 hover:bg-teal-50/50 active:scale-[0.99]">
-    <span class="flex items-center gap-3">
-      <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-700 text-white shadow-sm transition group-hover:scale-110 group-hover:bg-teal-800">
-        <i data-lucide="plus" class="h-5 w-5 stroke-[2.5]"></i>
-      </span>
-      <span class="text-sm font-extrabold text-slate-700 group-hover:text-teal-900">Dodaj nowe zadanie lub wydarzenie...</span>
-    </span>
-    <span class="hidden text-xs font-bold text-teal-700 sm:inline-block bg-teal-50 px-2.5 py-1 rounded-md border border-teal-200">+ Dodaj</span>
-  </button>
 
   <div id="holiday-note" hidden class="mb-4 rounded-lg border border-sky-200 bg-sky-50 p-4 text-sky-950"><b>Dzisiaj masz urlop!</b><p class="mt-1 text-sm">Zadania są zamrożone, a sekwencje nie przesuwają się.</p></div>
   <details id="today-events-critical" hidden data-accordion-id="today-critical-events" data-accordion-default="open" class="mb-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><summary id="today-events-critical-summary" class="cursor-pointer bg-slate-900 px-4 py-2.5 font-bold text-sm flex items-center justify-between text-white"></summary><div id="today-events-critical-list" class="space-y-2 border-t border-slate-200 p-3"></div></details>
@@ -158,7 +154,7 @@ details summary::-webkit-details-marker{display:none}details summary{list-style:
   </div>
   <div class="mb-5 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-extrabold">Okresy urlopowe</h2><p class="mb-4 mt-1 text-sm text-slate-500">W tych dniach nie ma zadań i kolejki są zamrożone.</p><form id="holiday-form" class="grid grid-cols-2 gap-3"><label class="text-sm font-bold">Od<input id="holiday-start" required type="date" class="mt-1 w-full rounded-md border-slate-300"></label><label class="text-sm font-bold">Do<input id="holiday-end" required type="date" class="mt-1 w-full rounded-md border-slate-300"></label><button class="col-span-2 rounded-md bg-sky-700 py-3 font-bold text-white">Dodaj okres urlopu</button></form><div id="holidays" class="mt-4 space-y-2"></div></div>
   <div class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm"><h2 class="font-extrabold">Kopia zapasowa</h2><p class="mb-4 mt-1 text-sm text-slate-500">Grupy, kroki, odznaczenia, urlopy i ustawienia.</p><button id="export" class="mb-3 flex w-full items-center justify-center gap-2 rounded-md bg-slate-900 py-3 font-bold text-white"><i data-lucide="download"></i>Eksportuj do JSON</button><label class="flex cursor-pointer items-center justify-center gap-2 rounded-md border-2 border-dashed border-teal-600 py-3 font-bold text-teal-800"><i data-lucide="upload"></i>Importuj z JSON<input id="importFileInput" hidden type="file" accept=".json,application/json"></label><button id="clean-import-btn" class="mt-3 flex w-full items-center justify-center gap-2 rounded-md border-2 border-rose-300 bg-white py-3 font-bold text-rose-700 hover:bg-rose-50"><i data-lucide="rotate-ccw"></i>Resetuj i wczytaj kopię (JSON)</button><input type="file" id="clean-import-file" accept=".json" class="hidden"><p class="mt-2 text-xs text-slate-500">Czyści bieżącą bazę danych i wgrywa dokładnie stan z wybranego pliku kopii zapasowej</p></div>
-  <p class="mt-6 text-center text-xs font-medium text-slate-400">Rotask · wersja 1.6</p>
+  <p class="mt-6 text-center text-xs font-medium text-slate-400">Rotask · wersja 1.21</p>
 </section>
 </main>
 
@@ -613,18 +609,11 @@ const daysBetween = (from, to) => Math.round((new Date(to + 'T12:00:00') - new D
 const pauseSpans = node => node.pauseLog || (node.paused ? [{ from: node.pausedOn || today(), to: null }] : []);
 const isPausedOn = (node, date) => pauseSpans(node).some(span => date >= span.from && (!span.to || date < span.to));
 
-// Dni opóźnienia od daty do dziś, pomijając dni, w których grupa lub podgrupa była wstrzymana.
+// Dni opóźnienia od daty do dziś - zwykłe dni kalendarzowe, rosnące każdego dnia także w trakcie pauzy.
+// (Wcześniej dni pauzy były odejmowane, przez co etykieta "N dni po" zamarzała na czas pauzy.)
+// Parametry group/subgroup zostają dla zgodności wywołań.
 function lateDays(date, current, group, subgroup) {
-  const spans = [...pauseSpans(group), ...(subgroup ? pauseSpans(subgroup) : [])]
-    .map(span => ({ from: span.from > date ? span.from : date, to: span.to && span.to < current ? span.to : current }))
-    .filter(span => span.from < span.to)
-    .sort((a, b) => a.from.localeCompare(b.from));
-  let paused = 0, covered = '';
-  spans.forEach(span => {
-    const from = span.from > covered ? span.from : covered;
-    if (span.to > from) { paused += daysBetween(from, span.to); covered = span.to; }
-  });
-  return Math.max(0, daysBetween(date, current) - paused);
+  return Math.max(0, daysBetween(date, current));
 }
 
 // Przełącza pauzę grupy lub podgrupy. Zmienia wyłącznie pola pauzy: daty, interwały i kolejność zadań zostają.
@@ -640,28 +629,26 @@ function withPauseToggled(node, current = today()) {
   return { ...node, paused: true, pausedOn: current, pauseLog: log };
 }
 
-// Niewykonane zadania węzłów wstrzymanych (cała grupa albo pojedyncza podgrupa).
-// Kursor przesuwa się o interwał grupy dla każdego kolejnego oczekującego zadania - żadne dwa nie dzielą tej samej daty.
+// Węzły wstrzymane (cała grupa albo pojedyncza podgrupa) NIE naliczają nowych zadań w trakcie pauzy.
+// Zaległości sprzed pauzy dostarcza już plan rotacji (getOverdueTasks), bo buildRotationPlan pomija dni objęte pauzą.
+// Pula zwraca wyłącznie zadania wstrzymanego węzła odhaczone dziś - żeby po odświeżeniu nie znikały z widoku do końca doby.
+// (Wcześniej pula rozkładała WSZYSTKIE pozostałe zadania podgrupy co `interval` dni od dnia pauzy aż do dziś, więc grupy
+// z wieloma zadaniami w podgrupie dalej "rosły" mimo pauzy, z etykietą "0 dni po".)
 function pausedPoolItems(groups, completions, current) {
   const items = [];
   groups.forEach(group => {
-    const doneEver = new Set(), doneToday = new Set();
-    completions.forEach(c => { if (c.groupId === group.id && c.done) { doneEver.add(c.taskId); if (c.completedDate === current) doneToday.add(c.taskId); } });
+    const doneToday = new Set();
+    completions.forEach(c => { if (c.groupId === group.id && c.done && c.completedDate === current) doneToday.add(c.taskId); });
+    if (!doneToday.size) return;
     group.subgroups.forEach(subgroup => {
       if (!group.paused && !subgroup.paused) return;
       const node = group.paused ? group : subgroup;
       const start = node.pausedOn || current;
       if (!isActiveOn(subgroup, start)) return;
       const tasks = subgroup.tasks && subgroup.tasks.length ? orderedTasks(subgroup.tasks) : [{ id: `${subgroup.id}-single`, name: subgroup.name, url: subgroup.url || '', fallback: true }];
-      const cycleDays = groupCycleDays(group, start), interval = groupInterval(group);
-      let cursor = start;
+      const cycleDays = groupCycleDays(group, start);
       tasks.forEach(task => {
-        if (doneEver.has(task.id) && !doneToday.has(task.id)) return;
-        if (doneToday.has(task.id)) { items.push({ date: current, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: true }); return; }
-        const date = cursor;
-        cursor = addDays(cursor, interval);
-        if (date > current) return; // czeka ukryte do swojego dnia
-        items.push({ date, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: false });
+        if (doneToday.has(task.id)) items.push({ date: current, group, subgroup, task, taskIndex: 0, taskCount: tasks.length, cycleDays, completed: true });
       });
     });
   });
@@ -921,7 +908,8 @@ const plannerStepMinutes = (minutes, direction) => {
   const next = direction > 0 ? (Math.floor(current / PLANNER_EDIT_STEP) + 1) * PLANNER_EDIT_STEP : Math.max(PLANNER_EDIT_STEP, (Math.ceil(current / PLANNER_EDIT_STEP) - 1) * PLANNER_EDIT_STEP);
   return Math.min(PLANNER_MAX, next);
 };
-let isPlannerEditing = false, plannerReorder = false, plannerPick = new Map(), plannerChain = Promise.resolve();
+let isPlannerEditing = false, plannerPick = new Map(), plannerChain = Promise.resolve();
+const PLANNER_OPEN_KEY = 'planner_panel_open';
 const plannerSourceMap = new Map(), plannerDayInit = new Map();
 
 const loadPlannerTemplate = async () => {
@@ -978,32 +966,36 @@ const plannerViewCard = (item, win) => `<li class="flex items-center gap-2.5 rou
   </div>
 </li>`;
 
-const plannerEditCard = (item, win) => `<li class="rounded-xl border border-slate-300 bg-white px-3 py-2.5 shadow-sm hover:border-teal-400">
-  <div class="flex items-start justify-between gap-2">
+// Podgląd kolejności: ponumerowane punkty wg numeru, potem reszta w dotychczasowej kolejności.
+// Godziny przeliczają się na żywo od godziny startu - tak samo, jak ułożą się po "Zastosuj".
+const plannerPreviewOrder = items => {
+  const rank = id => plannerPick.get(id) ?? Number.MAX_SAFE_INTEGER;
+  return [...items].sort((a, b) => rank(a.id) - rank(b.id));
+};
+
+// Jedna karta edycji (wersja A): kółko z numerem (tap = nadaj/zdejmij numer), godziny, nazwa
+// oraz zawsze widoczny pasek: minuty co 15, Codziennie, kosz. Nie ma osobnego trybu numerowania.
+const plannerEditCard = (item, win) => {
+  const number = plannerPick.get(item.id);
+  return `<li class="rounded-xl border-2 px-3 py-2 shadow-sm ${number ? 'border-teal-600 bg-teal-50' : 'border-slate-200 bg-white hover:border-teal-400'}">
+  <div class="flex items-center gap-2.5">
+    <button type="button" data-planner-act="pick" data-planner-id="${item.id}" title="${number ? 'Zdejmij numer' : 'Nadaj kolejny numer'}" class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${number ? 'bg-teal-700 text-white' : 'border-2 border-dashed border-teal-300 bg-slate-50 text-slate-400 hover:border-teal-500'}">${number ?? '–'}</button>
+    <span class="shrink-0 whitespace-nowrap rounded border px-2 py-0.5 font-mono text-xs font-bold ${number ? 'border-amber-400 bg-amber-100 text-amber-900' : 'border-teal-200 bg-teal-50 text-teal-800'}">${plannerFormatTime(win.start)} - ${plannerFormatTime(win.end)}</span>
     <div class="min-w-0 flex-1">
       <div class="break-words text-sm font-extrabold text-slate-900">${plannerNameHtml(item)}</div>
       ${plannerSourceLabel(item)}
     </div>
-    ${plannerPill(win)}
   </div>
-  <div class="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
-    <div class="flex items-center gap-1 rounded-lg border border-slate-300 p-0.5">
-      <button type="button" data-planner-act="minus" data-planner-id="${item.id}" class="h-7 w-7 rounded-md font-extrabold text-slate-600 hover:bg-slate-100" title="Skróć o 15 min">-</button>
+  <div class="mt-2 flex flex-wrap items-center gap-2 border-t border-slate-200/70 pt-2">
+    <div class="flex items-center gap-1 rounded-lg border border-slate-300 bg-white p-0.5">
+      <button type="button" data-planner-act="minus" data-planner-id="${item.id}" class="h-7 w-7 rounded-md font-extrabold text-slate-600 hover:bg-slate-100" title="Skróć o 15 min">−</button>
       <span class="w-16 text-center text-xs font-bold text-slate-700">${Number(item.minutes)} min</span>
       <button type="button" data-planner-act="plus" data-planner-id="${item.id}" class="h-7 w-7 rounded-md font-extrabold text-slate-600 hover:bg-slate-100" title="Wydłuż o 15 min">+</button>
     </div>
-    <button type="button" data-planner-act="daily" data-planner-id="${item.id}" aria-pressed="${!!item.tid}" class="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[11px] font-extrabold ${item.tid ? 'border-teal-700 bg-teal-700 text-white' : 'border-slate-300 text-slate-500 hover:bg-slate-50'}" title="Trafia automatycznie do planera każdego dnia"><i data-lucide="repeat" class="h-3.5 w-3.5"></i>Codziennie</button>
+    <button type="button" data-planner-act="daily" data-planner-id="${item.id}" aria-pressed="${!!item.tid}" class="inline-flex h-8 items-center gap-1 rounded-md border px-2 text-[11px] font-extrabold ${item.tid ? 'border-teal-700 bg-teal-700 text-white' : 'border-slate-300 bg-white text-slate-500 hover:bg-slate-50'}" title="Trafia automatycznie do planera każdego dnia"><i data-lucide="repeat" class="h-3.5 w-3.5"></i>Codziennie</button>
     <button type="button" data-planner-act="remove" data-planner-id="${item.id}" class="ml-auto rounded-md p-1.5 text-rose-500 hover:bg-rose-50 hover:text-rose-700" title="Usuń punkt"><i data-lucide="trash-2" class="h-4 w-4"></i></button>
   </div>
 </li>`;
-
-const plannerPickCard = (item, win) => {
-  const number = plannerPick.get(item.id);
-  return `<li><button type="button" data-planner-act="pick" data-planner-id="${item.id}" class="flex w-full items-center gap-3 rounded-xl border-2 px-3 py-2 text-left ${number ? 'border-teal-600 bg-teal-50' : 'border-slate-300 bg-white hover:border-teal-400'}">
-    <span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-extrabold ${number ? 'bg-teal-700 text-white' : 'bg-slate-100 text-slate-400'}">${number ?? '-'}</span>
-    ${plannerPill(win)}
-    <span class="min-w-0 flex-1 break-words text-sm font-extrabold text-slate-900">${html(item.name)}</span>
-  </button></li>`;
 };
 
 async function renderPlannerNow() {
@@ -1016,9 +1008,21 @@ async function renderPlannerNow() {
   $('#planner-start').value = day.startTime;
   $('#planner-summary').textContent = `Łącznie: ${plannerDuration(total)} · Koniec: ${plannerFormatTime(plannerToMinutes(day.startTime) + total)}`;
   const reorderBtn = $('#planner-reorder-btn');
-  reorderBtn.textContent = plannerReorder ? '✓ Gotowe' : '↕ Numeruj / Zmień kolejność';
-  reorderBtn.className = `rounded-lg border px-2.5 py-1.5 text-xs font-extrabold ${plannerReorder ? 'border-amber-400 bg-amber-400 text-slate-900' : 'border-teal-300 text-white hover:bg-teal-800'}`;
-  const cardFor = (item, index) => plannerReorder ? plannerPickCard(item, windows[index]) : isPlannerEditing ? plannerEditCard(item, windows[index]) : plannerViewCard(item, windows[index]);
+  // Numery punktów usuniętych w międzyczasie znikają, a pozostałe numery zamykają lukę (1, 2, 3...).
+  const ids = new Set(day.items.map(item => item.id));
+  if ([...plannerPick.keys()].some(id => !ids.has(id))) {
+    plannerPick = new Map([...plannerPick.entries()].filter(([id]) => ids.has(id)).sort((a, b) => a[1] - b[1]).map(([id], i) => [id, i + 1]));
+  }
+  // Trzeci przycisk belki: bez numerów = podpowiedź "↕ Kolejność"; z numerami = "✓ Zastosuj (n)".
+  const pickCount = plannerPick.size;
+  reorderBtn.textContent = pickCount ? `✓ Zastosuj (${pickCount})` : '↕ Kolejność';
+  reorderBtn.title = pickCount ? 'Ustaw punkty w nowej kolejności' : 'Tapnij kółko przy punkcie, aby nadać mu numer';
+  reorderBtn.className = `flex h-9 w-full items-center justify-center whitespace-nowrap rounded-lg border text-xs font-extrabold ${pickCount ? 'border-amber-400 bg-amber-400 text-slate-900' : 'border-teal-300 text-white hover:bg-teal-800'}`;
+  // Lista stoi w miejscu (łatwo klikać), a godziny liczone są wg podglądu nowej kolejności.
+  const previewWindows = new Map();
+  const order = plannerPreviewOrder(day.items);
+  plannerWindows(day.startTime, order).forEach((win, i) => previewWindows.set(order[i].id, win));
+  const cardFor = (item, index) => isPlannerEditing ? plannerEditCard(item, previewWindows.get(item.id)) : plannerViewCard(item, windows[index]);
   $('#planner-list').innerHTML = day.items.length
     ? day.items.map(cardFor).join('')
     : `<li class="rounded-lg border border-dashed border-slate-300 p-4 text-center text-sm font-bold text-slate-500">${isPlannerEditing ? 'Brak punktów. Kliknij „+ Dodaj punkt”.' : 'Brak punktów na dziś.'}</li>`;
@@ -1026,11 +1030,22 @@ async function renderPlannerNow() {
 }
 const renderPlanner = () => queuePlanner(renderPlannerNow);
 
+// Ustawia punkty wg nadanych numerów (ponumerowane najpierw, reszta w dotychczasowej kolejności) i czyści numery.
+function plannerApplyPicks() {
+  const picks = plannerPick;
+  plannerPick = new Map();
+  return updatePlannerDay(day => {
+    if (!picks.size) return false;
+    const rank = id => picks.get(id) ?? Number.MAX_SAFE_INTEGER;
+    day.items = [...day.items].sort((a, b) => rank(a.id) - rank(b.id));
+  });
+}
+
 function plannerSetEditing(editing) {
   isPlannerEditing = editing;
-  if (editing) $('#daily-planner-panel').open = true;
-  else { plannerReorder = false; plannerPick = new Map(); }
-  return renderPlanner();
+  if (editing) { $('#daily-planner-panel').open = true; return renderPlanner(); }
+  // "Zakończ" z nadanymi numerami nie gubi ich - stosuje nową kolejność.
+  return plannerApplyPicks();
 }
 
 function plannerTogglePick(id) {
@@ -1042,15 +1057,8 @@ function plannerTogglePick(id) {
 }
 
 function plannerToggleReorder() {
-  if (!plannerReorder) { plannerReorder = true; plannerPick = new Map(); return renderPlanner(); }
-  plannerReorder = false;
-  const picks = plannerPick;
-  plannerPick = new Map();
-  return updatePlannerDay(day => {
-    if (!picks.size) return false;
-    const rank = id => picks.get(id) ?? Number.MAX_SAFE_INTEGER;
-    day.items = [...day.items].sort((a, b) => rank(a.id) - rank(b.id));
-  });
+  if (!plannerPick.size) { say('Tapnij kółko przy punkcie, aby nadać mu numer'); return; }
+  return plannerApplyPicks();
 }
 
 // zadania z widoku Dzisiaj (zaległe, potem dzisiejsze); z każdej grupy pierwsze 5 pozycji jak w renderTodayV2
@@ -1173,9 +1181,18 @@ function submitPlannerAdd(event) {
 function initPlanner() {
   const panel = $('#daily-planner-panel');
   panel.open = accordionOpen(panel);
+  // Rozwinięcie/zwinięcie zapamiętywane w IndexedDB (localStorage bywa wyłączony w aplikacjach-opakowaniach na Androidzie).
+  // Zapis włączamy dopiero po odtworzeniu stanu, żeby start aplikacji nie nadpisał ostatniego wyboru.
+  getOne('settings', PLANNER_OPEN_KEY).catch(() => null).then(stored => {
+    if (stored && typeof stored.val === 'boolean' && panel.open !== stored.val) panel.open = stored.val;
+    setTimeout(() => panel.addEventListener('toggle', () => { save('settings', { key: PLANNER_OPEN_KEY, val: panel.open }).catch(() => {}); }), 0);
+  });
   panel.addEventListener('click', event => {
     const button = event.target.closest('[data-planner-act]');
     if (!button) return;
+    // Przyciski siedzą w <summary>: bez preventDefault przeglądarka po naszej akcji sama przełącza panel
+    // (ołówek rozwijał, a domyślna akcja od razu zwijała; "Zakończ" zwijał panel).
+    event.preventDefault();
     event.stopPropagation();
     const act = button.dataset.plannerAct, id = button.dataset.plannerId;
     if (act === 'edit') return plannerSetEditing(true);
@@ -2161,6 +2178,7 @@ async function boot() {
     $$('.view').forEach(v => v.hidden = v.id !== target + '-view');
     $$('.nav').forEach(n => n.classList.toggle('active', n === btn));
     $('#title').textContent = { today: 'Dzisiaj', schedule: 'Harmonogram', groups: 'Edycja', settings: 'Ustawienia' }[target] || 'Rotask';
+    $('#quick-add-btn').classList.toggle('hidden', target !== 'today');
     // krok 3: renderowanie danych odłożone na kolejny tick, tylko dla aktywowanego widoku
     setTimeout(() => {
       if (target === 'today') renderTodayV2();
